@@ -12,7 +12,7 @@ target_include_directories(
 
 target_link_libraries(
     slam_model PRIVATE
-    OpenCV::OpenCV
+    opencv::opencv
     Eigen3::Eigen
 )
 
