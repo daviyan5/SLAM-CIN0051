@@ -3,6 +3,17 @@ BasedOnStyle: Google
 IndentWidth: 4
 AccessModifierOffset: -4
 ColumnLimit: 100
+
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
+
+IncludeCategories:
+  - Regex:           '^<[a-zA-Z0-9_]+>$'
+    Priority:        1
+  - Regex:           '^<Eigen/.*>'
+    Priority:        2
+  - Regex:           '^<opencv2/.*>'
+    Priority:        3
+  - Regex:           '.*'
+    Priority:        4
