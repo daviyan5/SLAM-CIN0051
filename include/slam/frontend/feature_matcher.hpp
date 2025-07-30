@@ -13,7 +13,7 @@ namespace slam {
 
 class FeatureMatcher {
 public:
-    FeatureMatcher(const std::filesystem::path& configPath);
+    explicit FeatureMatcher(const std::filesystem::path& configPath);
     void match(const std::vector<KeyDescriptorPair>& pairs1,  // in
                const std::vector<KeyDescriptorPair>& pairs2,  // in
                std::vector<std::pair<int, int>>& matches);    // out

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
@@ -16,7 +17,7 @@ public:
 
 private:
     int m_frame{0};
-    const slam::Camera &m_camera;  // Referência para evitar cópia
+    std::reference_wrapper<const slam::Camera> m_camera;  // Referência para evitar cópia
 };
 
 }  // namespace slam

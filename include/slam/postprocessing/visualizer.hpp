@@ -9,10 +9,10 @@ namespace slam {
 
 class Visualizer {
 public:
-    Visualizer(const slam::Map& map);
+    explicit Visualizer(const slam::Map& map);
     void run();  // Inicia a thread de visualização.
 private:
-    const slam::Map& m_map;
+    std::reference_wrapper<const slam::Map> m_map;
     std::thread m_visualizerThread;
 };
 

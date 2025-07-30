@@ -12,7 +12,7 @@ namespace slam {
 
 class FeatureDetector {
 public:
-    FeatureDetector(const std::filesystem::path& configPath);
+    explicit FeatureDetector(const std::filesystem::path& configPath);
     void detectAndCompute(const cv::Mat& image,                                 // in
                           std::vector<KeyDescriptorPair>& keyDescriptorPairs);  // out
 };

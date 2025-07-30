@@ -12,7 +12,7 @@ using KeyDescriptorPair = std::pair<cv::KeyPoint, cv::Mat>;
 
 class Camera {
 public:
-    Camera(const std::filesystem::path& config_path) {
+    explicit Camera(const std::filesystem::path& configPath) {
     }
 
 private:

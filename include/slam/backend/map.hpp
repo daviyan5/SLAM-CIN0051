@@ -12,6 +12,9 @@ public:
     void insertKeyframe(/* ... */);
     void insertMapPoint(/* ... */);
 
+    // Getters?
+    // get map points..
+
 private:
     // Membros para armazenar keyframes e map points.
     std::mutex m_mapMutex;
