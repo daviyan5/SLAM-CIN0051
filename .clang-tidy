@@ -6,7 +6,8 @@ Checks: >
   modernize-*,
   performance-*,
   readability-*,
-  -modernize-use-trailing-return-type
+  -modernize-use-trailing-return-type,
+  -bugprone-easily-swappable-parameters,
 
 CheckOptions:
   - key: readability-identifier-naming.ClassCase
@@ -44,4 +45,4 @@ CheckOptions:
   - key: readability-identifier-length.MinimumParameterNameLength
     value: 1
   - key: readability-identifier-length.MinimumVariableNameLength
-    value: 2
+    value: 1

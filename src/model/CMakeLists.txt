@@ -5,13 +5,16 @@ target_include_directories(
     PUBLIC
     ${SLAM_INCLUDE_DIRS}
     PRIVATE 
-    ${quill_INCLUDE_DIRS}
+    ${spdlog_INCLUDE_DIRS}
+    ${fmt_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
     ${Eigen_INCLUDE_DIRS} 
 )
 
 target_link_libraries(
     slam_model PRIVATE
+    spdlog::spdlog
+    fmt::fmt
     opencv::opencv
     Eigen3::Eigen
 )

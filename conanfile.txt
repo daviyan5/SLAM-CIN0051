@@ -1,7 +1,7 @@
 [requires]
 opencv/4.11.0
 eigen/3.4.0
-quill/10.0.1
+spdlog/1.15.3
 
 [generators]
 CMakeDeps

@@ -17,14 +17,14 @@ public:
     SLAMModel(const std::filesystem::path& configPath, const std::filesystem::path& videoPath);
     void run();  // Inicia o pipeline principal do SLAM.
 private:
-    Camera m_camera;
-    Preprocessor m_preprocessor;
-    FeatureDetector m_featureDetector;
-    FeatureMatcher m_featureMatcher;
-    PoseEstimator m_poseEstimator;
-    Map m_map;
-    Backend m_backend;
-    Visualizer m_visualizer;
+    // Camera m_camera;
+    // Preprocessor m_preprocessor;
+    // FeatureDetector m_featureDetector;
+    // FeatureMatcher m_featureMatcher;
+    // PoseEstimator m_poseEstimator;
+    // Map m_map;
+    // Backend m_backend;
+    // Visualizer m_visualizer;
 };
 
 };  // namespace slam
