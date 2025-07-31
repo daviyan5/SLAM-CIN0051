@@ -5,7 +5,7 @@
 all: release
 
 release:
-	@conan install . --build=missing -s build_type=Release -d 'full_deploy' --deployer-folder build/Debug
+	@conan install . --build=missing -s build_type=Release -d 'full_deploy' --deployer-folder build/Release
 	@cmake -S . -B build/Release -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake
 	@cmake --build build/Release
 	@cmake --install build/Release --prefix ./stage/release
