@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: all release debug deploy clean format tidy
+.PHONY: all release debug deploy clean format tidy test help
 
 all: release
 
@@ -26,6 +26,11 @@ tidy:
 	fi
 	@find src tools include -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p build/Debug --quiet 2>&1 | grep -v "warnings generated" || true
 
+test:
+	@cd stage/debug/test && for test_name in $$(find . -maxdepth 1 -type f -executable -name "test_*"); do \
+		echo "--- Running $$test_name ---"; \
+		$$test_name || exit 1; \
+	done
 
 clean:
 	@rm -rf build stage

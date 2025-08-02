@@ -8,6 +8,7 @@ Checks: >
   readability-*,
   -modernize-use-trailing-return-type,
   -bugprone-easily-swappable-parameters,
+  -readability-isolate-declaration,
 
 CheckOptions:
   - key: readability-identifier-naming.ClassCase

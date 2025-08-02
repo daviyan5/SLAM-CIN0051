@@ -1,7 +1,7 @@
-add_executable(cli cli.cpp)
+add_executable(test_preprocessing test_preprocessing.cpp)
 
 target_include_directories(
-    cli
+    test_preprocessing
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
@@ -9,12 +9,11 @@ target_include_directories(
         ${fmt_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
-)
+        ${yaml-cpp_INCLUDE_DIRS}
+    )
 
 target_link_libraries(
-    cli
-    PUBLIC
-        slam_model
+    test_preprocessing
     PRIVATE
         spdlog::spdlog
         fmt::fmt
@@ -23,4 +22,4 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-install(TARGETS cli DESTINATION bin)
+install(TARGETS test_preprocessing DESTINATION test)
