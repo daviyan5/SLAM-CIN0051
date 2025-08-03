@@ -1,7 +1,7 @@
-add_library(slam_model model.cpp)
+add_library(slam_preprocessor preprocessor.cpp)
 
 target_include_directories(
-    slam_model 
+    slam_preprocessor
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
@@ -13,9 +13,7 @@ target_include_directories(
 )
 
 target_link_libraries(
-    slam_model
-    PUBLIC
-        slam_preprocessor
+    slam_preprocessor
     PRIVATE
         spdlog::spdlog
         fmt::fmt
@@ -24,4 +22,4 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-install(TARGETS slam_model DESTINATION lib)
+install(TARGETS slam_preprocessor DESTINATION lib)

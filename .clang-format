@@ -1,5 +1,4 @@
 # .clang-format
-
 Language: Cpp
 BasedOnStyle: Google
 IndentWidth: 4
@@ -10,15 +9,20 @@ AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 
-
+IncludeBlocks: Regroup
 IncludeCategories:
+  # System/standard library headers
+  - Regex:           '^<[^/]*>$'
+    Priority:        1
+  # Third-party library headers
   - Regex:           '^<Eigen/.*>'
     Priority:        2
   - Regex:           '^<opencv2/.*>'
     Priority:        3
   - Regex:           '^<spdlog/.*>'
     Priority:        4
-  - Regex:           '^<slam/.*>'
+  - Regex:           '^<yaml-cpp/.*>'
     Priority:        5
-  - Regex:           '^<.*'
-    Priority:        1
+  # Project headers
+  - Regex:           '^<slam/.*>'
+    Priority:        6

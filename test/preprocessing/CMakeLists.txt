@@ -1,7 +1,7 @@
-add_library(slam_model model.cpp)
+add_executable(test_preprocessing test_preprocessing.cpp)
 
 target_include_directories(
-    slam_model 
+    test_preprocessing
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
@@ -10,10 +10,10 @@ target_include_directories(
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
         ${yaml-cpp_INCLUDE_DIRS}
-)
+    )
 
 target_link_libraries(
-    slam_model
+    test_preprocessing
     PUBLIC
         slam_preprocessor
     PRIVATE
@@ -24,4 +24,4 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-install(TARGETS slam_model DESTINATION lib)
+install(TARGETS test_preprocessing DESTINATION test)

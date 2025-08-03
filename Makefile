@@ -1,19 +1,19 @@
 .DEFAULT_GOAL := help
 
-.PHONY: all release debug deploy clean format tidy
+.PHONY: all release debug deploy clean format tidy test help
 
 all: release
 
 release:
 	@conan install . --build=missing -s build_type=Release -d 'full_deploy' --deployer-folder build/Release
 	@cmake -S . -B build/Release -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake
-	@cmake --build build/Release
+	@cmake --build build/Release -j 16
 	@cmake --install build/Release --prefix ./stage/release
 
 debug:
 	@conan install . --build=missing -s build_type=Debug -d 'full_deploy' --deployer-folder build/Debug
 	@cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-	@cmake --build build/Debug
+	@cmake --build build/Debug -j 16
 	@cmake --install build/Debug --prefix ./stage/debug
 
 format:
@@ -24,8 +24,14 @@ tidy:
 		echo "Compilation database not found. Run 'make debug' first to generate it."; \
 		exit 1; \
 	fi
-	@find src tools include -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p build/Debug --quiet 2>&1 | grep -v "warnings generated" || true
-
+	@run-clang-tidy -p build/Debug -j 16 \
+		-header-filter='(src|tools|include)/.*'
+		
+test:
+	@cd stage/debug/test && for test_name in $$(find . -maxdepth 1 -type f -executable -name "test_*"); do \
+		echo "--- Running $$test_name ---"; \
+		$$test_name || exit 1; \
+	done
 
 clean:
 	@rm -rf build stage

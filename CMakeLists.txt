@@ -13,14 +13,18 @@ find_package(OpenCV 4.12 REQUIRED)
 find_package(Eigen3 3.4.0 REQUIRED)
 find_package(fmt REQUIRED)
 find_package(spdlog 1.15.3 REQUIRED)
+find_package(yaml-cpp 0.8.0 REQUIRED)
 
 message(STATUS "Found OpenCV version: ${OpenCV_VERSION}")
 message(STATUS "Found Eigen version: ${Eigen3_VERSION}")
 message(STATUS "Found spdlog version: ${spdlog_VERSION}")
+message(STATUS "Found fmt version: ${fmt_VERSION}")
+message(STATUS "Found yaml-cpp version: ${yaml-cpp_VERSION}")
 
 set(SLAM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory(src)
+add_subdirectory(test)
 add_subdirectory(tools/cli)
 
 install(
