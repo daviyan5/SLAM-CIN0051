@@ -125,7 +125,6 @@ slam::MatrixTimePair Preprocessor::yield() {
         if (!m_vc->read(frame)) {
             throw std::runtime_error("Failed to read frame from video.");
         }
-        m_frameNumber += 1 + m_frameSkip;
         double timestampMs = m_vc->get(cv::CAP_PROP_POS_MSEC);
         timestamp = std::chrono::system_clock::time_point(
             std::chrono::milliseconds(static_cast<int64_t>(timestampMs)));
