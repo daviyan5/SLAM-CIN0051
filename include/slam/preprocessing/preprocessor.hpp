@@ -27,14 +27,7 @@ public:
      * @param camera - Camera object containing intrinsic parameters.
      * @param frameSkip - Number of frames to skip between each processed frame.
      */
-    Preprocessor(const std::filesystem::path &streamPath, const slam::Camera &camera,
-                 int frameSkip = 0);
-
-    /**
-     * @brief User-defined destructor to release resources.
-     * @details Releases the video capture if it was opened.
-     */
-    ~Preprocessor();
+    Preprocessor(std::filesystem::path streamPath, const slam::Camera &camera, int frameSkip = 0);
 
     /**
      * @brief Returns the next undistorted image and its timestamp.
@@ -55,7 +48,7 @@ private:
     std::vector<std::chrono::system_clock::time_point> m_timestamps;
     std::vector<std::filesystem::path> m_files;
 
-    std::shared_ptr<cv::VideoCapture> m_vc{nullptr};
+    std::unique_ptr<cv::VideoCapture> m_vc{nullptr};
     std::filesystem::path m_streamPath;
     std::reference_wrapper<const slam::Camera> m_camera;
 };

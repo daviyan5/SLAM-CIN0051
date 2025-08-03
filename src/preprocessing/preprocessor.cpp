@@ -7,9 +7,9 @@
 
 using slam::Preprocessor;
 
-Preprocessor::Preprocessor(const std::filesystem::path &streamPath, const slam::Camera &camera,
+Preprocessor::Preprocessor(std::filesystem::path streamPath, const slam::Camera &camera,
                            const int frameSkip)
-    : m_camera(camera), m_streamPath(streamPath), m_frameSkip(frameSkip) {
+    : m_camera(camera), m_streamPath(std::move(streamPath)), m_frameSkip(frameSkip) {
     if (std::filesystem::is_directory(m_streamPath)) {
         m_isDirectory = true;
         prepareDirectory();
@@ -18,12 +18,6 @@ Preprocessor::Preprocessor(const std::filesystem::path &streamPath, const slam::
         prepareVideo();
     } else {
         throw std::runtime_error("Unsupported stream type: " + m_streamPath.string());
-    }
-}
-
-Preprocessor::~Preprocessor() {
-    if (m_vc && m_vc->isOpened()) {
-        m_vc->release();
     }
 }
 
@@ -89,7 +83,7 @@ void Preprocessor::prepareDirectory() {
 
 void Preprocessor::prepareVideo() {
     SPDLOG_INFO("Preparing video: {}", m_streamPath.string());
-    m_vc = std::make_shared<cv::VideoCapture>(m_streamPath.string());
+    m_vc = std::make_unique<cv::VideoCapture>(m_streamPath.string());
     if (!m_vc->isOpened()) {
         throw std::runtime_error("Could not open video file: " + m_streamPath.string());
     }
@@ -119,7 +113,10 @@ slam::MatrixTimePair Preprocessor::yield() {
             throw std::runtime_error("Failed to read image from file: " +
                                      m_files[m_frameNumber].string());
         }
-        double timestampMs = m_timestamps[m_frameNumber].time_since_epoch().count() / long(1e6);
+        constexpr double NANOSECONDS_PER_MILLISECOND = 1.0e6;
+        double timestampMs =
+            static_cast<double>(m_timestamps[m_frameNumber].time_since_epoch().count()) /
+            NANOSECONDS_PER_MILLISECOND;
         timestamp = std::chrono::system_clock::time_point(
             std::chrono::milliseconds(static_cast<int64_t>(timestampMs)));
 

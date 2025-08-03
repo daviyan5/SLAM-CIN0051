@@ -21,8 +21,10 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.VariableCase
     value: camelBack
+  - key: readability-identifier-naming.ConstantVariableCase
+    value: UPPER_CASE
   - key: readability-identifier-naming.VariableIgnoredRegexp
-    value: ^[A-Za-z]$
+    value: (^[A-Z][A-Z0-9_]*$)|(^[A-Za-z]$)
   - key: readability-identifier-naming.ParameterCase
     value: camelBack
   - key: readability-identifier-naming.ParameterIgnoredRegexp

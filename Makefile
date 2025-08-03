@@ -24,8 +24,9 @@ tidy:
 		echo "Compilation database not found. Run 'make debug' first to generate it."; \
 		exit 1; \
 	fi
-	@find src tools include -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p build/Debug --quiet 2>&1 | grep -v "warnings generated" || true
-
+	@run-clang-tidy -p build/Debug -j 16 \
+		-header-filter='(src|tools|include)/.*'
+		
 test:
 	@cd stage/debug/test && for test_name in $$(find . -maxdepth 1 -type f -executable -name "test_*"); do \
 		echo "--- Running $$test_name ---"; \
