@@ -7,13 +7,13 @@ all: release
 release:
 	@conan install . --build=missing -s build_type=Release -d 'full_deploy' --deployer-folder build/Release
 	@cmake -S . -B build/Release -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake
-	@cmake --build build/Release
+	@cmake --build build/Release -j 16
 	@cmake --install build/Release --prefix ./stage/release
 
 debug:
 	@conan install . --build=missing -s build_type=Debug -d 'full_deploy' --deployer-folder build/Debug
 	@cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-	@cmake --build build/Debug
+	@cmake --build build/Debug -j 16
 	@cmake --install build/Debug --prefix ./stage/debug
 
 format:

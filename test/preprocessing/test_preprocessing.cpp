@@ -3,9 +3,11 @@
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
 
+#include <spdlog/fmt/chrono.h>
 #include <spdlog/spdlog.h>
 
 #include <slam/common/common.hpp>
+#include <slam/preprocessing/preprocessor.hpp>
 
 int main() {
     spdlog::set_level(spdlog::level::debug);
@@ -34,6 +36,23 @@ int main() {
         spdlog::info("Successfully saved undistorted image to undistorted_output.png");
     } else {
         spdlog::error("Failed to save the image.");
+    }
+
+    // Test preprocessor
+    slam::Preprocessor preprocessor("./data/images", camera);
+
+    for (int i = 0; i < 10; ++i) {
+        try {
+            slam::MatrixTimePair pair{preprocessor.yield()};
+            if (pair.first.rows() == 0 and pair.first.cols() == 0) {
+                spdlog::error("No frames yielded from preprocessor.");
+                return -1;
+            }
+            spdlog::info("Timestamp received: {}", pair.second);
+        } catch (const std::exception& e) {
+            spdlog::error("Failed to prepare preprocessor: {}", e.what());
+            return -1;
+        }
     }
 
     return 0;

@@ -34,8 +34,8 @@ class Camera {
 public:
     /**
      * @brief Constructor for a single camera.
-     * @param configPath Path to the OpenCV-style YAML file.
-     * @param cameraIndex The index of the camera to load (e.g., 1 for K1/D1, 2 for K2/D2).
+     * @param configPath - Path to the OpenCV-style YAML file.
+     * @param cameraIndex - The index of the camera to load (e.g., 1 for K1/D1, 2 for K2/D2).
      */
     explicit Camera(const std::filesystem::path& configPath, int cameraIndex = 0)
         : m_cameraIndex(cameraIndex) {
@@ -84,7 +84,7 @@ public:
 
     /**
      * @brief Undistorts the CV Image into a Eigen matrix
-     * @param rawImage An rvalue reference to the image to be undistorted. The function takes
+     * @param rawImage - An rvalue reference to the image to be undistorted. The function takes
      * ownership of the data. The image should be in grayscale format.
      * @return The undistorted image as Eigen matrix
      */
