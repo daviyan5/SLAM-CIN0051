@@ -44,12 +44,29 @@ public:
         if (m_suppressionWindowSize <= 0) {
             throw std::runtime_error("Suppression window size must be a positive integer.");
         }
+
+        fs["PatchSize"] >> m_patchSize;
+        if (m_patchSize <= 0 || m_patchSize % 2 == 0) {
+            throw std::runtime_error("Patch size must be a positive odd integer.");
+        }
+
+        fs["NumBRIEFPairs"] >> m_numBRIEFPairs;
+        if (m_numBRIEFPairs <= 0 || m_numBRIEFPairs % 8 != 0) {
+            throw std::runtime_error("Number of BRIEF pairs must be a positive multiple of 8.");
+        }
         fs.release();
+
+        // BRIEF uses a fixed pattern for sampling, so we generate it once here.
+        // This pattern is used to compute the BRIEF descriptors.
+        m_briefPattern = generateBRIEFPattern();
 
         SPDLOG_DEBUG("FAST intensity threshold: {}", m_intensityThreshold);
         SPDLOG_DEBUG("FAST contiguous pixels threshold: {}", m_contiguousPixelsThreshold);
         SPDLOG_DEBUG("FAST non-max suppression: {}", m_nonMaxSuppression);
         SPDLOG_DEBUG("FAST suppression window size: {}", m_suppressionWindowSize);
+
+        SPDLOG_DEBUG("BRIEF patch size: {}", m_patchSize);
+        SPDLOG_DEBUG("BRIEF number of pairs: {}", m_numBRIEFPairs);
     }
 
     /**
@@ -87,12 +104,18 @@ private:
     bool m_nonMaxSuppression;
     int m_suppressionWindowSize;
 
+    int m_patchSize;
+    int m_numBRIEFPairs;
+    std::vector<std::pair<cv::Point2i, cv::Point2i>> m_briefPattern;
+
     void detectFASTKeypoints(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
     bool isFASTCorner(const cv::Mat& image, int x, int y);
     void applyNonMaxSuppression(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
     float computeFASTScore(const cv::Mat& image, int x, int y);
 
     float computeOrientation(const cv::Mat& image, const cv::KeyPoint& keypoint);
+    cv::Mat computeBRIEFDescriptor(const cv::Mat& image, const cv::KeyPoint& keypoint);
+    std::vector<std::pair<cv::Point2i, cv::Point2i>> generateBRIEFPattern();
 };
 
 }  // namespace slam

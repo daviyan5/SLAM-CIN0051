@@ -25,10 +25,17 @@ int main() {
     feature_detector.detect(image, keyDescriptorPairs);
     auto detect_end = std::chrono::high_resolution_clock::now();
 
+    auto compute_start = std::chrono::high_resolution_clock::now();
+    feature_detector.compute(image, keyDescriptorPairs);
+    auto compute_end = std::chrono::high_resolution_clock::now();
+
     auto detect_duration =
         std::chrono::duration_cast<std::chrono::milliseconds>(detect_end - detect_start);
+    auto compute_duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(compute_end - compute_start);
 
     spdlog::info("Keypoint detection: {} ms", detect_duration.count());
+    spdlog::info("Descriptor computation: {} ms", compute_duration.count());
 
     std::vector<cv::KeyPoint> keypoints;
     for (const auto& keyDescriptorPair : keyDescriptorPairs) {

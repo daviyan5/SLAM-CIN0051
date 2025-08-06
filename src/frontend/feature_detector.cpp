@@ -1,3 +1,6 @@
+#include <cmath>
+#include <random>
+
 #include <slam/frontend/feature_detector.hpp>
 
 namespace slam {
@@ -29,6 +32,27 @@ void FeatureDetector::detect(const cv::Mat& image,
 
 void FeatureDetector::compute(const cv::Mat& image,
                               std::vector<KeyDescriptorPair>& keyDescriptorPairs) {
+    cv::Mat grayImage;
+    if (image.channels() == 3) {
+        cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
+    } else {
+        grayImage = image.clone();
+    }
+
+    // BRIEF deals with images at pixel level, so it is very noise-sensitive. This sensitivity can
+    // be reduced by applying a blur to the image, thus increasing the stability and repeatability
+    // of the descriptors.
+    cv::Mat blurredImage;
+    cv::GaussianBlur(grayImage, blurredImage, cv::Size(5, 5), 1.0);
+
+    for (auto& keyDescriptorPair : keyDescriptorPairs) {
+        cv::KeyPoint& keypoint = keyDescriptorPair.first;
+        keypoint.angle = computeOrientation(blurredImage, keypoint);
+        cv::Mat& descriptor = keyDescriptorPair.second;
+        descriptor = computeBRIEFDescriptor(blurredImage, keypoint);
+    }
+
+    SPDLOG_DEBUG("Computed descriptors for {} keypoints", keyDescriptorPairs.size());
 }
 
 void FeatureDetector::detectAndCompute(const cv::Mat& image,
@@ -205,4 +229,78 @@ float FeatureDetector::computeOrientation(const cv::Mat& image, const cv::KeyPoi
     float angle = std::atan2(m01, m10) * 180.0f / CV_PI;
     return angle;
 }
+
+cv::Mat FeatureDetector::computeBRIEFDescriptor(const cv::Mat& image,
+                                                const cv::KeyPoint& keypoint) {
+    const int descriptorSize = m_numBRIEFPairs / 8;
+    cv::Mat descriptor = cv::Mat::zeros(1, descriptorSize, CV_8UC1);
+
+    int x = static_cast<int>(keypoint.pt.x);
+    int y = static_cast<int>(keypoint.pt.y);
+
+    if (x - m_patchSize / 2 < 0 || x + m_patchSize / 2 >= image.cols || y - m_patchSize / 2 < 0 ||
+        y + m_patchSize / 2 >= image.rows) {
+        return descriptor;
+    }
+
+    float angle = keypoint.angle * CV_PI / 180.0f;
+    float cosAngle = std::cos(angle);
+    float sinAngle = std::sin(angle);
+
+    int bitIndex = 0;
+    for (size_t i = 0; i < m_briefPattern.size() && bitIndex < descriptorSize * 8; i++) {
+        cv::Point2i p1 = m_briefPattern[i].first;
+        cv::Point2i p2 = m_briefPattern[i].second;
+
+        int x1 = static_cast<int>(p1.x * cosAngle - p1.y * sinAngle) + x;
+        int y1 = static_cast<int>(p1.x * sinAngle + p1.y * cosAngle) + y;
+        int x2 = static_cast<int>(p2.x * cosAngle - p2.y * sinAngle) + x;
+        int y2 = static_cast<int>(p2.x * sinAngle + p2.y * cosAngle) + y;
+
+        if (x1 >= 0 && x1 < image.cols && y1 >= 0 && y1 < image.rows && x2 >= 0 &&
+            x2 < image.cols && y2 >= 0 && y2 < image.rows) {
+            uchar pixelIntensity1 = image.at<uchar>(y1, x1);
+            uchar pixelIntensity2 = image.at<uchar>(y2, x2);
+
+            if (pixelIntensity1 < pixelIntensity2) {
+                int byteIndex = bitIndex / 8;
+                int bitPosition = bitIndex % 8;
+                descriptor.at<uchar>(0, byteIndex) |= (1 << bitPosition);
+            }
+
+            bitIndex++;
+        }
+    }
+
+    return descriptor;
+}
+
+std::vector<std::pair<cv::Point2i, cv::Point2i>> FeatureDetector::generateBRIEFPattern() {
+    std::vector<std::pair<cv::Point2i, cv::Point2i>> pattern;
+
+    // Here we utilize a random distribution to generate 256 pairs of points around the center of
+    // the patch. These pairs of points will be used to compute the BRIEF descriptor. The points are
+    // sampled from a Gaussian distribution centered at (0, 0) with a standard deviation of 1.0. The
+    // points are then scaled to fit within the patch size.
+    const float scale = m_patchSize / 2.0f;
+
+    std::default_random_engine generator;
+    std::normal_distribution<float> distribution(0.0f, 1.0f);
+
+    for (int i = 0; i < m_numBRIEFPairs; i++) {
+        float x1 = distribution(generator) * scale;
+        float y1 = distribution(generator) * scale;
+        float x2 = distribution(generator) * scale;
+        float y2 = distribution(generator) * scale;
+
+        if (std::abs(x1) < scale && std::abs(y1) < scale && std::abs(x2) < scale &&
+            std::abs(y2) < scale) {
+            pattern.emplace_back(cv::Point2i(static_cast<int>(x1), static_cast<int>(y1)),
+                                 cv::Point2i(static_cast<int>(x2), static_cast<int>(y2)));
+        }
+    }
+
+    return pattern;
+}
+
 }  // namespace slam
