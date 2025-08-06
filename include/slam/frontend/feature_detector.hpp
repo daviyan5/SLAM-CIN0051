@@ -91,6 +91,8 @@ private:
     bool isFASTCorner(const cv::Mat& image, int x, int y);
     void applyNonMaxSuppression(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
     float computeFASTScore(const cv::Mat& image, int x, int y);
+
+    float computeOrientation(const cv::Mat& image, const cv::KeyPoint& keypoint);
 };
 
 }  // namespace slam

@@ -179,4 +179,30 @@ float FeatureDetector::computeFASTScore(const cv::Mat& image, int x, int y) {
 
     return score;
 }
+
+float FeatureDetector::computeOrientation(const cv::Mat& image, const cv::KeyPoint& keypoint) {
+    int x = static_cast<int>(keypoint.pt.x);
+    int y = static_cast<int>(keypoint.pt.y);
+
+    const int radius = m_patchSize / 2;
+    if (x - radius < 0 || x + radius >= image.cols || y - radius < 0 || y + radius >= image.rows) {
+        return 0.0f;
+    }
+
+    float m01 = 0.0f;
+    float m10 = 0.0f;
+
+    for (int v = -radius; v <= radius; v++) {
+        for (int u = -radius; u <= radius; u++) {
+            if (u * u + v * v <= radius * radius) {
+                uchar pixelIntensity = image.at<uchar>(y + v, x + u);
+                m01 += v * pixelIntensity;
+                m10 += u * pixelIntensity;
+            }
+        }
+    }
+
+    float angle = std::atan2(m01, m10) * 180.0f / CV_PI;
+    return angle;
+}
 }  // namespace slam
