@@ -11,7 +11,7 @@
 
 int main() {
     spdlog::set_level(spdlog::level::debug);
-    slam::FeatureDetector feature_detector("./data/feature_detector.yml");
+    slam::FeatureDetector featureDetector("./data/feature_detector.yml");
     cv::Mat image = cv::imread("./data/images/0000000000.png", cv::IMREAD_GRAYSCALE);
 
     if (image.empty()) {
@@ -21,21 +21,21 @@ int main() {
 
     std::vector<slam::KeyDescriptorPair> keyDescriptorPairs;
 
-    auto detect_start = std::chrono::high_resolution_clock::now();
-    feature_detector.detect(image, keyDescriptorPairs);
-    auto detect_end = std::chrono::high_resolution_clock::now();
+    auto detectStart = std::chrono::high_resolution_clock::now();
+    featureDetector.detect(image, keyDescriptorPairs);
+    auto detectEnd = std::chrono::high_resolution_clock::now();
 
-    auto compute_start = std::chrono::high_resolution_clock::now();
-    feature_detector.compute(image, keyDescriptorPairs);
-    auto compute_end = std::chrono::high_resolution_clock::now();
+    auto computeStart = std::chrono::high_resolution_clock::now();
+    featureDetector.compute(image, keyDescriptorPairs);
+    auto computeEnd = std::chrono::high_resolution_clock::now();
 
-    auto detect_duration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(detect_end - detect_start);
-    auto compute_duration =
-        std::chrono::duration_cast<std::chrono::milliseconds>(compute_end - compute_start);
+    auto detectDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(detectEnd - detectStart);
+    auto computeDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(computeEnd - computeStart);
 
-    spdlog::info("Keypoint detection: {} ms", detect_duration.count());
-    spdlog::info("Descriptor computation: {} ms", compute_duration.count());
+    spdlog::info("Keypoint detection: {} ms", detectDuration.count());
+    spdlog::info("Descriptor computation: {} ms", computeDuration.count());
 
     std::vector<cv::KeyPoint> keypoints;
     for (const auto& keyDescriptorPair : keyDescriptorPairs) {
