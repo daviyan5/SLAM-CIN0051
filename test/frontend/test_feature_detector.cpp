@@ -39,6 +39,8 @@ int main() {
         spdlog::info("Descriptor computation: {} ms", computeDuration.count());
 
         std::vector<cv::KeyPoint> keypoints;
+        keypoints.reserve(keyDescriptorPairs.size());
+
         for (const auto& keyDescriptorPair : keyDescriptorPairs) {
             keypoints.push_back(keyDescriptorPair.first);
         }
