@@ -72,26 +72,30 @@ public:
     /**
      * @brief Detects keypoints in the given image.
      * @param image The input image in which to detect features.
-     * @param keyDescriptorPairs Output vector of keypoints.
+     * @param keypoints Output vector of detected keypoints.
      */
-    void detect(const cv::Mat& image,                                 // in
-                std::vector<KeyDescriptorPair>& keyDescriptorPairs);  // out
+    void detect(const cv::Mat& image,                   // in
+                std::vector<cv::KeyPoint>& keypoints);  // out
 
     /**
      * @brief Computes descriptors for the detected keypoints.
      * @param image The input image in which to compute descriptors.
-     * @param keyDescriptorPairs Output vector of keypoints and their descriptors.
+     * @param keypoints The input vector of keypoints for which to compute descriptors.
+     * @param descriptors Output matrix of computed descriptors.
      */
-    void compute(const cv::Mat& image,                                 // in
-                 std::vector<KeyDescriptorPair>& keyDescriptorPairs);  // out
+    void compute(const cv::Mat& image,                  // in
+                 std::vector<cv::KeyPoint>& keypoints,  // in
+                 cv::Mat& descriptors);                 // out
 
     /**
      * @brief Detects keypoints and computes descriptors in the given image.
-     * @param image The input image in which to detect features.
-     * @param keyDescriptorPairs Output vector of keypoints and their descriptors.
+     * @param image The input image in which to detect features and compute descriptors.
+     * @param keypoints Output vector of detected keypoints.
+     * @param descriptors Output matrix of computed descriptors.
      */
-    void detectAndCompute(const cv::Mat& image,                                 // in
-                          std::vector<KeyDescriptorPair>& keyDescriptorPairs);  // out
+    void detectAndCompute(const cv::Mat& image,                  // in
+                          std::vector<cv::KeyPoint>& keypoints,  // out
+                          cv::Mat& descriptors);                 // out
 
 private:
     const int m_pixelOffsets[16][2] = {{0, -3}, {1, -3},  {2, -2},  {3, -1}, {3, 0},  {3, 1},

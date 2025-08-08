@@ -4,9 +4,8 @@
 #include <slam/frontend/feature_detector.hpp>
 
 namespace slam {
-void FeatureDetector::detect(const cv::Mat& image,
-                             std::vector<KeyDescriptorPair>& keyDescriptorPairs) {
-    keyDescriptorPairs.clear();
+void FeatureDetector::detect(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints) {
+    keypoints.clear();
 
     cv::Mat grayImage;
     if (image.channels() == 3) {
@@ -15,29 +14,29 @@ void FeatureDetector::detect(const cv::Mat& image,
         grayImage = image.clone();
     }
 
-    std::vector<cv::KeyPoint> keypoints;
     detectFASTKeypoints(grayImage, keypoints);
 
     if (m_nonMaxSuppression) {
         applyNonMaxSuppression(grayImage, keypoints);
     }
 
-    for (const auto& keypoint : keypoints) {
-        cv::Mat descriptor;
-        keyDescriptorPairs.emplace_back(keypoint, descriptor);
-    }
-
     SPDLOG_DEBUG("Detected {} keypoints", keypoints.size());
 }
 
-void FeatureDetector::compute(const cv::Mat& image,
-                              std::vector<KeyDescriptorPair>& keyDescriptorPairs) {
+void FeatureDetector::compute(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints,
+                              cv::Mat& descriptors) {
+    if (keypoints.empty()) {
+        return;
+    }
+
     cv::Mat grayImage;
     if (image.channels() == 3) {
         cv::cvtColor(image, grayImage, cv::COLOR_BGR2GRAY);
     } else {
         grayImage = image.clone();
     }
+
+    descriptors.create(static_cast<int>(keypoints.size()), m_numBRIEFPairs / 8, CV_8UC1);
 
     // BRIEF deals with images at pixel level, so it is very noise-sensitive. This sensitivity can
     // be reduced by applying a blur to the image, thus increasing the stability and repeatability
@@ -45,20 +44,23 @@ void FeatureDetector::compute(const cv::Mat& image,
     cv::Mat blurredImage;
     cv::GaussianBlur(grayImage, blurredImage, cv::Size(5, 5), 1.0);
 
-    for (auto& keyDescriptorPair : keyDescriptorPairs) {
-        cv::KeyPoint& keypoint = keyDescriptorPair.first;
-        keypoint.angle = computeOrientation(blurredImage, keypoint);
-        cv::Mat& descriptor = keyDescriptorPair.second;
-        descriptor = computeBRIEFDescriptor(blurredImage, keypoint);
+    for (auto& keypoint : keypoints) {
+        float angle = computeOrientation(blurredImage, keypoint);
+        keypoint.angle = angle;
+
+        cv::Mat descriptor = computeBRIEFDescriptor(blurredImage, keypoint);
+
+        int index = static_cast<int>(&keypoint - &keypoints[0]);
+        descriptor.copyTo(descriptors.row(index));
     }
 
-    SPDLOG_DEBUG("Computed descriptors for {} keypoints", keyDescriptorPairs.size());
+    SPDLOG_DEBUG("Computed descriptors for {} keypoints", keypoints.size());
 }
 
-void FeatureDetector::detectAndCompute(const cv::Mat& image,
-                                       std::vector<KeyDescriptorPair>& keyDescriptorPairs) {
-    detect(image, keyDescriptorPairs);
-    compute(image, keyDescriptorPairs);
+void FeatureDetector::detectAndCompute(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints,
+                                       cv::Mat& descriptors) {
+    detect(image, keypoints);
+    compute(image, keypoints, descriptors);
 }
 
 void FeatureDetector::detectFASTKeypoints(const cv::Mat& image,

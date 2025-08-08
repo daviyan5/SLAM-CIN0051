@@ -20,14 +20,15 @@ int main() {
             return -1;
         }
 
-        std::vector<slam::KeyDescriptorPair> keyDescriptorPairs;
+        std::vector<cv::KeyPoint> keypoints;
+        cv::Mat descriptors;
 
         auto detectStart = std::chrono::high_resolution_clock::now();
-        featureDetector.detect(image, keyDescriptorPairs);
+        featureDetector.detect(image, keypoints);
         auto detectEnd = std::chrono::high_resolution_clock::now();
 
         auto computeStart = std::chrono::high_resolution_clock::now();
-        featureDetector.compute(image, keyDescriptorPairs);
+        featureDetector.compute(image, keypoints, descriptors);
         auto computeEnd = std::chrono::high_resolution_clock::now();
 
         auto detectDuration =
@@ -37,13 +38,6 @@ int main() {
 
         spdlog::info("Keypoint detection: {} ms", detectDuration.count());
         spdlog::info("Descriptor computation: {} ms", computeDuration.count());
-
-        std::vector<cv::KeyPoint> keypoints;
-        keypoints.reserve(keyDescriptorPairs.size());
-
-        for (const auto& keyDescriptorPair : keyDescriptorPairs) {
-            keypoints.push_back(keyDescriptorPair.first);
-        }
 
         cv::Mat keypointsImage;
         cv::drawKeypoints(image, keypoints, keypointsImage);

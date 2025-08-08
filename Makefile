@@ -42,6 +42,6 @@ help:
 	@echo "  make debug           - Build the project in Debug mode and create a distributable package."
 	@echo "  make format          - Run clang-format on all source and header files."
 	@echo "  make tidy            - Run clang-tidy on all source files (requires 'make debug' to be run first)."
-	@echo "  make test            - Run all tests in the debug stage."
+	@echo "  make test            - Run all tests in the test/ directory."
 	@echo "  make clean           - Remove all generated build and install files."
 	@echo "  make help            - (Default) Shows this help message."
