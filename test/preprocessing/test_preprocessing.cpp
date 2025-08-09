@@ -26,7 +26,7 @@ int main() {
 
         // Undistorted is between 0 to 1. Multiply by 255 to convert to 8-bit image.
         slam::EigenGrayMatrix undistortedImageU8 =
-            (undistortedImage.array() * slam::COLOR_RANGE).cast<unsigned char>();
+            (undistortedImage.array() * slam::constants::COLOR_RANGE).cast<unsigned char>();
 
         // Copy data from Eigen matrix to OpenCV
         undistortedImageCv = cv::Mat(static_cast<int>(undistortedImageU8.rows()),

@@ -36,13 +36,16 @@ void FeatureDetector::compute(const cv::Mat& image, std::vector<cv::KeyPoint>& k
         grayImage = image.clone();
     }
 
-    descriptors.create(static_cast<int>(keypoints.size()), m_numBRIEFPairs / 8, CV_8UC1);
+    descriptors.create(static_cast<int>(keypoints.size()), m_numBRIEFPairs / constants::BRIEF_PAIRS,
+                       CV_8UC1);
 
     // BRIEF deals with images at pixel level, so it is very noise-sensitive. This sensitivity can
     // be reduced by applying a blur to the image, thus increasing the stability and repeatability
     // of the descriptors.
     cv::Mat blurredImage;
-    cv::GaussianBlur(grayImage, blurredImage, cv::Size(5, 5), 1.0);
+    cv::Size kernelSize(constants::BLUR_KERNEL_SIZE, constants::BLUR_KERNEL_SIZE);
+
+    cv::GaussianBlur(grayImage, blurredImage, kernelSize, 1.0);
 
     for (auto& keypoint : keypoints) {
         float angle = computeOrientation(blurredImage, keypoint);
@@ -50,7 +53,7 @@ void FeatureDetector::compute(const cv::Mat& image, std::vector<cv::KeyPoint>& k
 
         cv::Mat descriptor = computeBRIEFDescriptor(blurredImage, keypoint);
 
-        int index = static_cast<int>(&keypoint - &keypoints[0]);
+        int index = static_cast<int>(&keypoint - keypoints.data());
         descriptor.copyTo(descriptors.row(index));
     }
 
@@ -68,16 +71,16 @@ void FeatureDetector::detectFASTKeypoints(const cv::Mat& image,
     keypoints.clear();
     const int border = 3;
 
-    for (int y = border; y < image.rows - border; y++) {
-        for (int x = border; x < image.cols - border; x++) {
-            if (isFASTCorner(image, x, y)) {
-                keypoints.emplace_back(x, y, 6.0f);
+    for (int row = border; row < image.rows - border; row++) {
+        for (int col = border; col < image.cols - border; col++) {
+            if (isFASTCorner(image, col, row)) {
+                keypoints.emplace_back(col, row, constants::DEFAULT_KEYPOINT_SIZE);
             }
         }
     }
 }
 
-bool FeatureDetector::isFASTCorner(const cv::Mat& image, int x, int y) {
+[[nodiscard]] bool FeatureDetector::isFASTCorner(const cv::Mat& image, int x, int y) const {
     const uchar pixelIntensity = image.at<uchar>(y, x);
 
     // To exclude a large number of non-corners pixels, we first examine the four neighbor pixels at
@@ -88,8 +91,9 @@ bool FeatureDetector::isFASTCorner(const cv::Mat& image, int x, int y) {
     int darkerPixels = 0;
 
     for (int i = 0; i < 2; i++) {
-        int neighborX = x + m_pixelOffsets[i * 8][0];
-        int neighborY = y + m_pixelOffsets[i * 8][1];
+        const int32_t OFFSET_INDEX{i * constants::CARDINAL_DIRECTION_STEP};
+        int neighborX = x + M_PIXEL_OFFSETS.at(OFFSET_INDEX).at(0);
+        int neighborY = y + M_PIXEL_OFFSETS.at(OFFSET_INDEX).at(1);
         const uchar neighborIntensity = image.at<uchar>(neighborY, neighborX);
 
         if (neighborIntensity > pixelIntensity + m_intensityThreshold) {
@@ -104,8 +108,9 @@ bool FeatureDetector::isFASTCorner(const cv::Mat& image, int x, int y) {
     }
 
     for (int i = 0; i < 2; i++) {
-        int neighborX = x + m_pixelOffsets[i * 8 + 4][0];
-        int neighborY = y + m_pixelOffsets[i * 8 + 4][1];
+        const int32_t OFFSET_INDEX{(i * constants::CARDINAL_DIRECTION_STEP) + 4};
+        int neighborX = x + M_PIXEL_OFFSETS.at(OFFSET_INDEX).at(0);
+        int neighborY = y + M_PIXEL_OFFSETS.at(OFFSET_INDEX).at(1);
         const uchar neighborIntensity = image.at<uchar>(neighborY, neighborX);
 
         if (neighborIntensity > pixelIntensity + m_intensityThreshold) {
@@ -125,9 +130,10 @@ bool FeatureDetector::isFASTCorner(const cv::Mat& image, int x, int y) {
     brighterPixels = 0;
     darkerPixels = 0;
 
-    for (int i = 0; i < 32; i++) {
-        int neighborX = x + m_pixelOffsets[i % 16][0];
-        int neighborY = y + m_pixelOffsets[i % 16][1];
+    for (int i = 0; i < constants::FULL_CIRCLE_TEST_COUNT; i++) {
+        const int32_t OFFSET_INDEX{i % constants::CIRCLE_PERIMETER};
+        int neighborX = x + M_PIXEL_OFFSETS.at(OFFSET_INDEX).at(0);
+        int neighborY = y + M_PIXEL_OFFSETS.at(OFFSET_INDEX).at(1);
         const uchar neighborIntensity = image.at<uchar>(neighborY, neighborX);
 
         if (neighborIntensity > pixelIntensity + m_intensityThreshold) {
@@ -151,7 +157,7 @@ bool FeatureDetector::isFASTCorner(const cv::Mat& image, int x, int y) {
 }
 
 void FeatureDetector::applyNonMaxSuppression(const cv::Mat& image,
-                                             std::vector<cv::KeyPoint>& keypoints) {
+                                             std::vector<cv::KeyPoint>& keypoints) const {
     if (keypoints.empty()) {
         return;
     }
@@ -159,7 +165,8 @@ void FeatureDetector::applyNonMaxSuppression(const cv::Mat& image,
     std::vector<cv::KeyPoint> suppressedKeypoints;
 
     for (auto& keypoint : keypoints) {
-        keypoint.response = computeFASTScore(image, keypoint.pt.x, keypoint.pt.y);
+        keypoint.response = computeFASTScore(image, static_cast<int>(keypoint.pt.x),
+                                             static_cast<int>(keypoint.pt.y));
     }
 
     std::sort(keypoints.begin(), keypoints.end(),
@@ -181,9 +188,9 @@ void FeatureDetector::applyNonMaxSuppression(const cv::Mat& image,
 
             float dx = keypoints[i].pt.x - keypoints[j].pt.x;
             float dy = keypoints[i].pt.y - keypoints[j].pt.y;
-            float distance = std::sqrt(dx * dx + dy * dy);
+            float distance = std::sqrt((dx * dx) + (dy * dy));
 
-            if (distance < m_suppressionWindowSize) {
+            if (distance < static_cast<float>(m_suppressionWindowSize)) {
                 suppressed[j] = true;
             }
         }
@@ -192,49 +199,50 @@ void FeatureDetector::applyNonMaxSuppression(const cv::Mat& image,
     keypoints = suppressedKeypoints;
 }
 
-float FeatureDetector::computeFASTScore(const cv::Mat& image, int x, int y) {
+[[nodiscard]] float FeatureDetector::computeFASTScore(const cv::Mat& image, int x, int y) {
     const uchar pixelIntensity = image.at<uchar>(y, x);
-    float score = 0.0f;
+    float score = 0.0F;
 
-    for (int i = 0; i < 16; i++) {
-        int neighborX = x + m_pixelOffsets[i][0];
-        int neighborY = y + m_pixelOffsets[i][1];
+    for (int i = 0; i < constants::CIRCLE_PERIMETER; i++) {
+        int neighborX = x + M_PIXEL_OFFSETS.at(i).at(0);
+        int neighborY = y + M_PIXEL_OFFSETS.at(i).at(1);
         const uchar neighborIntensity = image.at<uchar>(neighborY, neighborX);
-        score += std::abs(neighborIntensity - pixelIntensity);
+        score += static_cast<float>(std::abs(neighborIntensity - pixelIntensity));
     }
 
     return score;
 }
 
-float FeatureDetector::computeOrientation(const cv::Mat& image, const cv::KeyPoint& keypoint) {
+[[nodiscard]] float FeatureDetector::computeOrientation(const cv::Mat& image,
+                                                        const cv::KeyPoint& keypoint) const {
     int x = static_cast<int>(keypoint.pt.x);
     int y = static_cast<int>(keypoint.pt.y);
 
     const int radius = m_patchSize / 2;
     if (x - radius < 0 || x + radius >= image.cols || y - radius < 0 || y + radius >= image.rows) {
-        return 0.0f;
+        return 0.0F;
     }
 
-    float m01 = 0.0f;
-    float m10 = 0.0f;
+    float m01 = 0.0F;
+    float m10 = 0.0F;
 
     for (int v = -radius; v <= radius; v++) {
         for (int u = -radius; u <= radius; u++) {
             if (u * u + v * v <= radius * radius) {
                 uchar pixelIntensity = image.at<uchar>(y + v, x + u);
-                m01 += v * pixelIntensity;
-                m10 += u * pixelIntensity;
+                m01 += static_cast<float>(v) * static_cast<float>(pixelIntensity);
+                m10 += static_cast<float>(u) * static_cast<float>(pixelIntensity);
             }
         }
     }
 
-    float angle = std::atan2(m01, m10) * 180.0f / CV_PI;
+    auto angle = static_cast<float>(std::atan2(m01, m10) * constants::RADIANS_TO_DEGREES);
     return angle;
 }
 
-cv::Mat FeatureDetector::computeBRIEFDescriptor(const cv::Mat& image,
-                                                const cv::KeyPoint& keypoint) {
-    const int descriptorSize = m_numBRIEFPairs / 8;
+[[nodiscard]] cv::Mat FeatureDetector::computeBRIEFDescriptor(const cv::Mat& image,
+                                                              const cv::KeyPoint& keypoint) const {
+    const int descriptorSize = m_numBRIEFPairs / constants::BRIEF_PAIRS;
     cv::Mat descriptor = cv::Mat::zeros(1, descriptorSize, CV_8UC1);
 
     int x = static_cast<int>(keypoint.pt.x);
@@ -245,19 +253,25 @@ cv::Mat FeatureDetector::computeBRIEFDescriptor(const cv::Mat& image,
         return descriptor;
     }
 
-    float angle = keypoint.angle * CV_PI / 180.0f;
+    float angle = keypoint.angle * constants::DEGREES_TO_RADIANS;
     float cosAngle = std::cos(angle);
     float sinAngle = std::sin(angle);
 
     int bitIndex = 0;
-    for (size_t i = 0; i < m_briefPattern.size() && bitIndex < descriptorSize * 8; i++) {
+    for (size_t i = 0;
+         i < m_briefPattern.size() && bitIndex < descriptorSize * constants::BRIEF_PAIRS; i++) {
         cv::Point2i p1 = m_briefPattern[i].first;
         cv::Point2i p2 = m_briefPattern[i].second;
 
-        int x1 = static_cast<int>(p1.x * cosAngle - p1.y * sinAngle) + x;
-        int y1 = static_cast<int>(p1.x * sinAngle + p1.y * cosAngle) + y;
-        int x2 = static_cast<int>(p2.x * cosAngle - p2.y * sinAngle) + x;
-        int y2 = static_cast<int>(p2.x * sinAngle + p2.y * cosAngle) + y;
+        const float p1X{static_cast<float>(p1.x)};
+        const float p1Y{static_cast<float>(p1.y)};
+        const float p2X{static_cast<float>(p2.x)};
+        const float p2Y{static_cast<float>(p2.y)};
+
+        int x1 = static_cast<int>(p1X * cosAngle - p1Y * sinAngle) + x;
+        int y1 = static_cast<int>(p1X * sinAngle + p1Y * cosAngle) + y;
+        int x2 = static_cast<int>(p2X * cosAngle - p2Y * sinAngle) + x;
+        int y2 = static_cast<int>(p2X * sinAngle + p2Y * cosAngle) + y;
 
         if (x1 >= 0 && x1 < image.cols && y1 >= 0 && y1 < image.rows && x2 >= 0 &&
             x2 < image.cols && y2 >= 0 && y2 < image.rows) {
@@ -265,8 +279,8 @@ cv::Mat FeatureDetector::computeBRIEFDescriptor(const cv::Mat& image,
             uchar pixelIntensity2 = image.at<uchar>(y2, x2);
 
             if (pixelIntensity1 < pixelIntensity2) {
-                int byteIndex = bitIndex / 8;
-                int bitPosition = bitIndex % 8;
+                int byteIndex = bitIndex / constants::BRIEF_PAIRS;
+                int bitPosition = bitIndex % constants::BRIEF_PAIRS;
                 descriptor.at<uchar>(0, byteIndex) |= (1 << bitPosition);
             }
 
@@ -277,17 +291,18 @@ cv::Mat FeatureDetector::computeBRIEFDescriptor(const cv::Mat& image,
     return descriptor;
 }
 
-std::vector<std::pair<cv::Point2i, cv::Point2i>> FeatureDetector::generateBRIEFPattern() {
+[[nodiscard]] std::vector<std::pair<cv::Point2i, cv::Point2i>>
+FeatureDetector::generateBRIEFPattern() const {
     std::vector<std::pair<cv::Point2i, cv::Point2i>> pattern;
 
     // Here we utilize a random distribution to generate 256 pairs of points around the center of
     // the patch. These pairs of points will be used to compute the BRIEF descriptor. The points are
     // sampled from a Gaussian distribution centered at (0, 0) with a standard deviation of 1.0. The
     // points are then scaled to fit within the patch size.
-    const float scale = m_patchSize / 2.0f;
+    const float scale = static_cast<float>(m_patchSize) / 2.0F;
 
     std::default_random_engine generator;
-    std::normal_distribution<float> distribution(0.0f, 1.0f);
+    std::normal_distribution<float> distribution(0.0F, 1.0F);
 
     for (int i = 0; i < m_numBRIEFPairs; i++) {
         float x1 = distribution(generator) * scale;

@@ -12,6 +12,17 @@
 
 namespace slam {
 
+namespace constants {
+constexpr int CIRCLE_PERIMETER = 16;
+constexpr int BRIEF_PAIRS = 8;
+constexpr int BLUR_KERNEL_SIZE = 5;
+constexpr float DEFAULT_KEYPOINT_SIZE = 6.0F;
+constexpr int CARDINAL_DIRECTION_STEP = 8;
+constexpr int FULL_CIRCLE_TEST_COUNT = CIRCLE_PERIMETER * 2;
+constexpr float RADIANS_TO_DEGREES = 180.0F / CV_PI;
+constexpr float DEGREES_TO_RADIANS = CV_PI / 180.0F;
+}  // namespace constants
+
 class FeatureDetector {
 public:
     /**
@@ -26,19 +37,24 @@ public:
         }
 
         fs["IntensityThreshold"] >> m_intensityThreshold;
-        if (m_intensityThreshold < 0 || m_intensityThreshold > 255) {
+        if (m_intensityThreshold < 0 || m_intensityThreshold > constants::COLOR_RANGE) {
             throw std::runtime_error("Intensity threshold must be in the range [0, 255].");
         }
 
         fs["ContiguousPixelsThreshold"] >> m_contiguousPixelsThreshold;
-        if (m_contiguousPixelsThreshold < 0 || m_contiguousPixelsThreshold > 16) {
+        if (m_contiguousPixelsThreshold < 0 ||
+            m_contiguousPixelsThreshold > constants::CIRCLE_PERIMETER) {
             throw std::runtime_error("Contiguous pixels threshold must be in the range [0, 16].");
         }
 
-        fs["NonMaxSuppression"] >> m_nonMaxSuppression;
-        if (m_nonMaxSuppression != 0 && m_nonMaxSuppression != 1) {
+        int tmpMaxSuppressionValue{};
+        fs["NonMaxSuppression"] >> tmpMaxSuppressionValue;
+
+        if (tmpMaxSuppressionValue != 0 && tmpMaxSuppressionValue != 1) {
             throw std::runtime_error("Non-max suppression must be either 0 (false) or 1 (true).");
         }
+
+        m_nonMaxSuppression = static_cast<bool>(tmpMaxSuppressionValue);
 
         fs["SuppressionWindowSize"] >> m_suppressionWindowSize;
         if (m_suppressionWindowSize <= 0) {
@@ -51,7 +67,7 @@ public:
         }
 
         fs["NumBRIEFPairs"] >> m_numBRIEFPairs;
-        if (m_numBRIEFPairs <= 0 || m_numBRIEFPairs % 8 != 0) {
+        if (m_numBRIEFPairs <= 0 || m_numBRIEFPairs % constants::BRIEF_PAIRS != 0) {
             throw std::runtime_error("Number of BRIEF pairs must be a positive multiple of 8.");
         }
         fs.release();
@@ -98,28 +114,46 @@ public:
                           cv::Mat& descriptors);                 // out
 
 private:
-    const int m_pixelOffsets[16][2] = {{0, -3}, {1, -3},  {2, -2},  {3, -1}, {3, 0},  {3, 1},
-                                       {2, 2},  {1, 3},   {0, 3},   {-1, 3}, {-2, 2}, {-3, 1},
-                                       {-3, 0}, {-3, -1}, {-2, -2}, {-1, -3}};
+    static constexpr std::array<std::array<int, 2>, 16> M_PIXEL_OFFSETS = {{{0, -3},
+                                                                            {1, -3},
+                                                                            {2, -2},
+                                                                            {3, -1},
+                                                                            {3, 0},
+                                                                            {3, 1},
+                                                                            {2, 2},
+                                                                            {1, 3},
+                                                                            {0, 3},
+                                                                            {-1, 3},
+                                                                            {-2, 2},
+                                                                            {-3, 1},
+                                                                            {-3, 0},
+                                                                            {-3, -1},
+                                                                            {-2, -2},
+                                                                            {-1, -3}}};
 
-    int m_intensityThreshold;
-    int m_contiguousPixelsThreshold;
+    int m_intensityThreshold{};
+    int m_contiguousPixelsThreshold{};
 
-    bool m_nonMaxSuppression;
-    int m_suppressionWindowSize;
+    bool m_nonMaxSuppression{};
+    int m_suppressionWindowSize{};
 
-    int m_patchSize;
-    int m_numBRIEFPairs;
+    int m_patchSize{};
+    int m_numBRIEFPairs{};
     std::vector<std::pair<cv::Point2i, cv::Point2i>> m_briefPattern;
 
-    void detectFASTKeypoints(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
-    bool isFASTCorner(const cv::Mat& image, int x, int y);
-    void applyNonMaxSuppression(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
-    float computeFASTScore(const cv::Mat& image, int x, int y);
+    [[nodiscard]] bool isFASTCorner(const cv::Mat& image, int x, int y) const;
 
-    float computeOrientation(const cv::Mat& image, const cv::KeyPoint& keypoint);
-    cv::Mat computeBRIEFDescriptor(const cv::Mat& image, const cv::KeyPoint& keypoint);
-    std::vector<std::pair<cv::Point2i, cv::Point2i>> generateBRIEFPattern();
+    void applyNonMaxSuppression(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints) const;
+
+    [[nodiscard]] static float computeFASTScore(const cv::Mat& image, int x, int y);
+
+    [[nodiscard]] float computeOrientation(const cv::Mat& image,
+                                           const cv::KeyPoint& keypoint) const;
+
+    [[nodiscard]] cv::Mat computeBRIEFDescriptor(const cv::Mat& image,
+                                                 const cv::KeyPoint& keypoint) const;
+    void detectFASTKeypoints(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
+    [[nodiscard]] std::vector<std::pair<cv::Point2i, cv::Point2i>> generateBRIEFPattern() const;
 };
 
 }  // namespace slam

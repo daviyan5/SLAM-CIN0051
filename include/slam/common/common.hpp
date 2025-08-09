@@ -13,7 +13,9 @@
 
 namespace slam {
 
-const double COLOR_RANGE = 255.0;  // Range for grayscale images in OpenCV
+namespace constants {
+constexpr double COLOR_RANGE = 255.0;  // Range for grayscale images in OpenCV
+}  // namespace constants
 
 /**
  * @brief A pair of keypoint and its descriptor.
@@ -99,7 +101,7 @@ public:
         }
 
         Eigen::Map<EigenGrayMatrix> mappedImage(image.data, image.rows, image.cols);
-        Eigen::MatrixXd eigenImage = mappedImage.cast<double>() / COLOR_RANGE;
+        Eigen::MatrixXd eigenImage = mappedImage.cast<double>() / constants::COLOR_RANGE;
 
         int rows = m_imageSize(1);
         int cols = m_imageSize(0);
