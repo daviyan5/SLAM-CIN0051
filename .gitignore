@@ -4,3 +4,4 @@ stage/*
 .vscode/*
 *.json
 *.user
+*.autosave
