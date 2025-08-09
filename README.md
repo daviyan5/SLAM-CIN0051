@@ -43,12 +43,13 @@ The following `make` commands are available:
 
 | Command        | Description                                                                                              |
 | :------------- | :------------------------------------------------------------------------------------------------------- |
-| `make release` | Builds the project in Release mode and creates a distributable package in `stage/release`.             |
-| `make debug`   | Builds the project in Debug mode and creates a distributable package in `stage/debug`.                 |
-| `make format`  | Runs `clang-format` on all source and header files in `src/`, `tools/`, and `include/` directories.    |
-| `make tidy`    | Runs `clang-tidy` static analysis on all source files (requires `make debug` to be run first).        |
-| `make clean`   | Removes the `build/` and `stage/` directories, cleaning all build artifacts and installed packages.    |
-| `make help`    | Displays a list of all available commands.                                                              |
+| `make release` | Builds the project in Release mode and creates a distributable package in `stage/release`.               |
+| `make debug`   | Builds the project in Debug mode and creates a distributable package in `stage/debug`.                   |
+| `make format`  | Runs `clang-format` on all source and header files in `src/`, `tools/`, and `include/` directories.      |
+| `make tidy`    | Runs `clang-tidy` static analysis on all source files (requires `make debug` to be run first).           |
+| `make test`    | Run all tests in the `test/` directory. This command requires the project to be built first.             |
+| `make clean`   | Removes the `build/` and `stage/` directories, cleaning all build artifacts and installed packages.      |
+| `make help`    | Displays a list of all available commands.                                                               |
 
 ## 4. Code Quality
 

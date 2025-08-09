@@ -1,0 +1,10 @@
+%YAML:1.0
+---
+IntensityThreshold: 20
+ContiguousPixelsThreshold: 12
+
+NonMaxSuppression: 1
+SuppressionWindowSize: 12
+
+PatchSize: 31
+NumBRIEFPairs: 256

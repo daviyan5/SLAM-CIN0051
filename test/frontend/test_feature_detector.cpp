@@ -1,0 +1,57 @@
+#include <chrono>
+
+#include <Eigen/Eigen>
+
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/opencv.hpp>
+
+#include <spdlog/spdlog.h>
+
+#include <slam/frontend/feature_detector.hpp>
+
+int main() {
+    try {
+        spdlog::set_level(spdlog::level::debug);
+        slam::FeatureDetector featureDetector("./data/feature_detector.yml");
+        cv::Mat image = cv::imread("./data/images/0000000000.png", cv::IMREAD_GRAYSCALE);
+
+        if (image.empty()) {
+            spdlog::error("Failed to load test image.");
+            return -1;
+        }
+
+        std::vector<cv::KeyPoint> keypoints;
+        cv::Mat descriptors;
+
+        auto detectStart = std::chrono::high_resolution_clock::now();
+        featureDetector.detect(image, keypoints);
+        auto detectEnd = std::chrono::high_resolution_clock::now();
+
+        auto computeStart = std::chrono::high_resolution_clock::now();
+        featureDetector.compute(image, keypoints, descriptors);
+        auto computeEnd = std::chrono::high_resolution_clock::now();
+
+        auto detectDuration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(detectEnd - detectStart);
+        auto computeDuration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(computeEnd - computeStart);
+
+        spdlog::info("Keypoint detection: {} ms", detectDuration.count());
+        spdlog::info("Descriptor computation: {} ms", computeDuration.count());
+
+        cv::Mat keypointsImage;
+        cv::drawKeypoints(image, keypoints, keypointsImage);
+
+        bool success = cv::imwrite("./results/keypoints_output.png", keypointsImage);
+        if (success) {
+            spdlog::info("Successfully saved image with keypoints to keypoints_output.png");
+        } else {
+            spdlog::error("Failed to save the image.");
+        }
+    } catch (const std::exception& e) {
+        spdlog::error("An error occurred: {}", e.what());
+        return -1;
+    }
+
+    return 0;
+}
