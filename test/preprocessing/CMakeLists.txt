@@ -10,7 +10,7 @@ target_include_directories(
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
         ${yaml-cpp_INCLUDE_DIRS}
-    )
+)
 
 target_link_libraries(
     test_preprocessing

@@ -1,7 +1,7 @@
-add_library(slam_feature_detector feature_detector.cpp)
+add_executable(test_feature_detector test_feature_detector.cpp)
 
 target_include_directories(
-    slam_feature_detector
+    test_feature_detector
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
@@ -13,7 +13,9 @@ target_include_directories(
 )
 
 target_link_libraries(
-    slam_feature_detector
+    test_feature_detector
+    PUBLIC
+        slam_feature_detector
     PRIVATE
         spdlog::spdlog
         fmt::fmt
@@ -22,4 +24,4 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-install(TARGETS slam_feature_detector DESTINATION lib)
+install(TARGETS test_feature_detector DESTINATION test)
