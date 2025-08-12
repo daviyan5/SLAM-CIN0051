@@ -1,25 +1,23 @@
-add_library(slam_loop_closure loop_closure.cpp)
+add_executable(test_loop_closure test_loop_closure.cpp)
 
 target_include_directories(
-    slam_loop_closure
+    test_loop_closure
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
         ${spdlog_INCLUDE_DIRS}
-        ${fmt_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
-        ${yaml-cpp_INCLUDE_DIRS}
 )
 
 target_link_libraries(
-    slam_loop_closure
+    test_loop_closure
+    PUBLIC
+        slam_loop_closure     
     PRIVATE
         spdlog::spdlog
-        fmt::fmt
         opencv::opencv
         Eigen3::Eigen
-        yaml-cpp::yaml-cpp
 )
 
-install(TARGETS slam_loop_closure DESTINATION lib)
+install(TARGETS test_loop_closure DESTINATION test)
