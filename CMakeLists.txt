@@ -14,12 +14,16 @@ find_package(Eigen3 3.4.0 REQUIRED)
 find_package(fmt REQUIRED)
 find_package(spdlog 1.15.3 REQUIRED)
 find_package(yaml-cpp 0.8.0 REQUIRED)
+find_package(fbow REQUIRED)
+find_package(OpenMP REQUIRED) 
 
 message(STATUS "Found OpenCV version: ${OpenCV_VERSION}")
 message(STATUS "Found Eigen version: ${Eigen3_VERSION}")
 message(STATUS "Found spdlog version: ${spdlog_VERSION}")
 message(STATUS "Found fmt version: ${fmt_VERSION}")
 message(STATUS "Found yaml-cpp version: ${yaml-cpp_VERSION}")
+message(STATUS "Found fbow version: ${fbow_VERSION}")
+message(STATUS "Found OpenMP version: ${OpenMP_CXX_VERSION}")
 
 set(SLAM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
