@@ -4,17 +4,13 @@ target_include_directories(
     slam_loop_closure
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
-    PRIVATE
-        ${spdlog_INCLUDE_DIRS}
-        ${fmt_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        ${Eigen_INCLUDE_DIRS}
-        ${yaml-cpp_INCLUDE_DIRS}
 )
 
 target_link_libraries(
     slam_loop_closure
     PRIVATE
+        fbow::fbow
+        OpenMP::OpenMP_CXX
         spdlog::spdlog
         fmt::fmt
         opencv::opencv
