@@ -1,0 +1,8 @@
+loop_closure:
+  min_db_size: 2
+  min_frames_difference: 2
+  min_absolute_score: 0.005
+  relative_score_factor: 1.5
+
+  min_matches_for_pnp: 20
+  min_inliers: 5
