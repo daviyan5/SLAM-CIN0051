@@ -10,65 +10,51 @@
 
 namespace slam {
 
-/**
- * @brief A struct to hold all necessary data for a keyframe in the database.
- */
 struct KeyframeData {
     fbow::BoWVector bow_vector;
     std::vector<cv::KeyPoint> keypoints;
     std::vector<cv::Point3f> map_points; // 3D points corresponding to each keypoint/descriptor
 };
 
-/**
- * @brief struct to hold the confirmed result of a loop detection.
- */
 struct LoopResult {
     int matched_keyframe_id;
     Eigen::Matrix4d relative_transform; // The transform FROM the current frame TO the matched frame
 };
 
-/**
- * @brief Camera struct to hold intrinsic parameters.
- */
 struct Camera {
     cv::Mat K; // Intrinsic matrix
     cv::Mat D; // Distortion coefficients
 };
 
-/**
- * @brief Class to handle loop detection 
- */
 class LoopClosure {
 public:
+    // struct to hold all configurable parameters with their defaults
+    struct Params {
+        int min_db_size = 2;
+        int min_frames_difference = 2;
+        double min_absolute_score = 0.005;
+        double relative_score_factor = 1.5;
+        int min_matches_for_pnp = 20;
+        int min_inliers = 5;
+    };
+
     /**
      * @brief Constructor for LoopClosure.
      * @param vocab_path Path to the pre-trained fbow vocabulary file.
+     * @param config_path Path to the YAML configuration file.
      */
-    explicit LoopClosure(const std::string& vocab_path);
+    explicit LoopClosure(const std::string& vocab_path, const std::string& config_path);
 
-    /**
-     * @brief Adds a new keyframe's data to the database.
-     * @param keyframe_id The unique ID of the keyframe.
-     * @param descriptors The feature descriptors.
-     * @param keypoints The 2D feature keypoints.
-     * @param map_points The corresponding 3D map points.
-     */
     void addKeyframe(int keyframe_id, const cv::Mat& descriptors, const std::vector<cv::KeyPoint>& keypoints, const std::vector<cv::Point3f>& map_points);
-
-    /**
-     * @brief Detects and verifies a loop.
-     * @param descriptors The descriptors of the current keyframe.
-     * @param keypoints The 2D keypoints of the current keyframe.
-     * @param camera The camera intrinsics.
-     * @return An optional containing the confirmed LoopResult (matched ID and transform).
-     */
     std::optional<LoopResult> detect(const cv::Mat& descriptors, const std::vector<cv::KeyPoint>& keypoints, const Camera& camera);
 
 private:
+    void loadParameters(const std::string& config_path);
+
+    Params m_params; 
     fbow::Vocabulary m_vocabulary;
     std::map<int, KeyframeData> m_keyframe_database;
-    std::map<int, cv::Mat> m_keyframe_descriptors; 
-
+    std::map<int, cv::Mat> m_keyframe_descriptors;
     int m_last_keyframe_id{-1};
 };
 
