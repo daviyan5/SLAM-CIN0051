@@ -1,29 +1,33 @@
 #pragma once
 
-#include <fbow/fbow.h>
-#include <opencv2/opencv.hpp>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
-#include <map>
+
 #include <Eigen/Dense>
+
+#include <opencv2/opencv.hpp>
+
+#include <fbow/fbow.h>
 
 namespace slam {
 
 struct KeyframeData {
     fbow::BoWVector bow_vector;
     std::vector<cv::KeyPoint> keypoints;
-    std::vector<cv::Point3f> map_points; // 3D points corresponding to each keypoint/descriptor
+    std::vector<cv::Point3f> map_points;  // 3D points corresponding to each keypoint/descriptor
 };
 
 struct LoopResult {
     int matched_keyframe_id;
-    Eigen::Matrix4d relative_transform; // The transform FROM the current frame TO the matched frame
+    Eigen::Matrix4d
+        relative_transform;  // The transform FROM the current frame TO the matched frame
 };
 
 struct Camera {
-    cv::Mat K; // Intrinsic matrix
-    cv::Mat D; // Distortion coefficients
+    cv::Mat K;  // Intrinsic matrix
+    cv::Mat D;  // Distortion coefficients
 };
 
 class LoopClosure {
@@ -45,17 +49,21 @@ public:
      */
     explicit LoopClosure(const std::string& vocab_path, const std::string& config_path);
 
-    void addKeyframe(int keyframe_id, const cv::Mat& descriptors, const std::vector<cv::KeyPoint>& keypoints, const std::vector<cv::Point3f>& map_points);
-    std::optional<LoopResult> detect(const cv::Mat& descriptors, const std::vector<cv::KeyPoint>& keypoints, const Camera& camera);
+    void addKeyframe(int keyframe_id, const cv::Mat& descriptors,
+                     const std::vector<cv::KeyPoint>& keypoints,
+                     const std::vector<cv::Point3f>& map_points);
+    std::optional<LoopResult> detect(const cv::Mat& descriptors,
+                                     const std::vector<cv::KeyPoint>& keypoints,
+                                     const Camera& camera);
 
 private:
     void loadParameters(const std::string& config_path);
 
-    Params m_params; 
+    Params m_params;
     fbow::Vocabulary m_vocabulary;
     std::map<int, KeyframeData> m_keyframe_database;
     std::map<int, cv::Mat> m_keyframe_descriptors;
     int m_last_keyframe_id{-1};
 };
 
-} // namespace slam
+}  // namespace slam
