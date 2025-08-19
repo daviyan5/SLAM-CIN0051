@@ -9,8 +9,7 @@
 
 namespace slam {
 namespace constants {
-constexpr uint32_t MAX_JUMP_RADIUS = 100;
-constexpr uint32_t JUMP_PENALTY = 10;
+constexpr uint32_t MAX_JUMP_RADIUS = 500;
 }  // namespace constants
 
 /**

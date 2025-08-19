@@ -247,7 +247,7 @@ bool LoopClosure::solvePnP(const std::vector<Eigen::Vector3d>& points3d,
     }
 
     Eigen::MatrixXd A(2 * n, projectionMatrixCols);
-    for (int64_t = 0; i < n; ++i) {
+    for (int64_t i = 0; i < n; ++i) {
         const double X = points3d[i].x(), Y = points3d[i].y(), Z = points3d[i].z();
         const double u = points2d[i].x(), v = points2d[i].y();
         A.row(2 * i) << X, Y, Z, 1, 0, 0, 0, 0, -u * X, -u * Y, -u * Z, -u;

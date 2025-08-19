@@ -1,12 +1,14 @@
-#include "slam/frontend/pose_estimator.hpp"
-#include "slam/frontend/simple_pose_recover.hpp"
-
 #include <vector>
+
+#include <Eigen/Dense>
 
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
 
 #include <spdlog/spdlog.h>
+
+#include <slam/frontend/pose_estimator.hpp>
+#include <slam/frontend/simple_pose_recover.hpp>
 
 using slam::PoseEstimator;
 
@@ -36,7 +38,7 @@ void PoseEstimator::estimate(const std::vector<KeyDescriptorPair>& pairs1,
     //    found via the epipolar constraint: x2^T * E * x1 = 0.
     //    use RANSAC to be robust against outlier matches.
     cv::Mat K_cv;
-    cv::eigen2cv(m_camera.get().K(), K_cv);  // Convert Eigen K matrix to cv::Mat
+    cv::eigen2cv(m_camera.get().getIntrinsicMatrix(), K_cv);  // Convert Eigen K matrix to cv::Mat
     cv::Mat essential_matrix = cv::findEssentialMat(points1, points2, K_cv, cv::RANSAC);
 
     if (essential_matrix.empty()) {
@@ -68,7 +70,7 @@ std::vector<cv::Point3d> PoseEstimator::triangulatePoints(
     const std::vector<cv::KeyPoint>& keypoints1, const std::vector<cv::KeyPoint>& keypoints2,
     const std::vector<cv::DMatch>& matches, const cv::Mat& R, const cv::Mat& t) {
     cv::Mat K_cv;
-    cv::eigen2cv(m_camera.get().K(), K_cv);
+    cv::eigen2cv(m_camera.get().getIntrinsicMatrix(), K_cv);
 
     // Create the projection matrices for both camera poses
     // Pose 1 is the origin [I | 0]
