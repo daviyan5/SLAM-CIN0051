@@ -3,7 +3,7 @@
 DistanceType: "HAMMING"
 
 FilterMatches: 1
-GoodMatchesCount: 40
+GoodMatchesCount: 20
 
 UseRatioTest: 1
-RatioTestThreshold: 0.8
+RatioTestThreshold: 0.5

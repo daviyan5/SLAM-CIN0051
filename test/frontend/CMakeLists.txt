@@ -37,8 +37,8 @@ target_link_libraries(
     test_feature_detector
     PUBLIC
         slam_frontend
-    PRIVATE
         spdlog::spdlog
+    PRIVATE
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen
@@ -47,8 +47,8 @@ target_link_libraries(
     test_feature_matcher
     PUBLIC
         slam_frontend
-    PRIVATE
         spdlog::spdlog
+    PRIVATE
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen
@@ -57,8 +57,9 @@ target_link_libraries(
     test_pose_estimator
     PUBLIC
         slam_frontend
-    PRIVATE
+        slam_preprocessing
         spdlog::spdlog
+    PRIVATE
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen

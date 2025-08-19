@@ -28,7 +28,7 @@ tidy:
 		-header-filter='(src|tools|include)/.*'
 
 test:
-	@cd stage/release/test && for test_name in $$(find . -maxdepth 1 -type f -executable -name "test_*"); do \
+	@cd stage/debug/test && for test_name in $$(find . -maxdepth 1 -type f -executable -name "test_*"); do \
 		echo "--- Running $$test_name ---"; \
 		$$test_name || exit 1; \
 	done

@@ -89,7 +89,7 @@ std::vector<cv::Point3d> PoseEstimator::triangulatePoints(
 
     // Triangulate points to get them in 4D homogeneous coordinates
     cv::Mat pts_4d;
-    cv::triangulatePoints(K_cv * T1, K_cv * T2, points1, points2, pts_4d);
+    slam::triangulate(K_cv * T1, K_cv * T2, points1, points2, pts_4d);
 
     // homogeneous to 3D coordinates
     std::vector<cv::Point3d> points_3d;
