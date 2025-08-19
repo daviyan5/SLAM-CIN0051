@@ -1,4 +1,5 @@
 #include "slam/frontend/pose_estimator.hpp"
+#include "slam/frontend/simple_pose_recover.hpp"
 
 #include <vector>
 
@@ -45,9 +46,22 @@ void PoseEstimator::estimate(const std::vector<KeyDescriptorPair>& pairs1,
 
     // 3. Recover the Rotation (R) and Translation (t) from the Essential Matrix.
     //    decomposing E gives four possible solutions for R and t.
-    //    `recoverPose` internally uses triangulation to check the depth of points
+    //    We use triangulation to check the depth of points
     //    and select the one correct solution where the points are in front of both cameras.
-    cv::recoverPose(essential_matrix, points1, points2, K_cv, R, t);
+    std::vector<cv::Point2f> norm_points1, norm_points2;
+    double fx = K_cv.at<double>(0, 0);
+    double fy = K_cv.at<double>(1, 1);
+    double cx = K_cv.at<double>(0, 2);
+    double cy = K_cv.at<double>(1, 2);
+
+    for (const auto& pt : points1) {
+        norm_points1.emplace_back((pt.x - cx) / fx, (pt.y - cy) / fy);
+    }
+    for (const auto& pt : points2) {
+        norm_points2.emplace_back((pt.x - cx) / fx, (pt.y - cy) / fy);
+    }
+
+    simpleRecoverPose(essential_matrix, norm_points1, norm_points2, K_cv, R, t);
 }
 
 std::vector<cv::Point3d> PoseEstimator::triangulatePoints(

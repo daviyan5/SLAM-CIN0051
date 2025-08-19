@@ -75,11 +75,11 @@ int main(int argc, char** argv) {
     std::string project_root = argv[1];
 
     try {
-        slam::Camera camera(project_root + "/data/camera.yml");
+        slam::Camera camera(project_root + "test/data/camera.yml");
         slam::PoseEstimator pose_estimator(camera);
 
-        cv::Mat img1 = cv::imread(project_root + "/data/test_images/0.png", cv::IMREAD_GRAYSCALE);
-        cv::Mat img2 = cv::imread(project_root + "/data/test_images/1.png", cv::IMREAD_GRAYSCALE);
+        cv::Mat img1 = cv::imread(project_root + "test/data/test_images/0.png", cv::IMREAD_GRAYSCALE);
+        cv::Mat img2 = cv::imread(project_root + "test/data/test_images/1.png", cv::IMREAD_GRAYSCALE);
         if (img1.empty() || img2.empty()) {
             SPDLOG_ERROR("Could not load test images.");
             return -1;
