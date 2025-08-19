@@ -1,0 +1,9 @@
+%YAML:1.0
+---
+DistanceType: "HAMMING"
+
+FilterMatches: 1
+GoodMatchesCount: 100
+
+UseRatioTest: 1
+RatioTestThreshold: 0.7
