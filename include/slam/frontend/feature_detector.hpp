@@ -3,8 +3,7 @@
 #include <filesystem>
 #include <vector>
 
-#include <opencv2/core.hpp>
-#include <opencv2/features2d.hpp>
+#include <Eigen/Dense>
 
 #include <spdlog/spdlog.h>
 
@@ -19,9 +18,31 @@ constexpr int BLUR_KERNEL_SIZE = 5;
 constexpr float DEFAULT_KEYPOINT_SIZE = 6.0F;
 constexpr int CARDINAL_DIRECTION_STEP = 8;
 constexpr int FULL_CIRCLE_TEST_COUNT = CIRCLE_PERIMETER * 2;
-constexpr float RADIANS_TO_DEGREES = 180.0F / CV_PI;
-constexpr float DEGREES_TO_RADIANS = CV_PI / 180.0F;
+constexpr float RADIANS_TO_DEGREES = 180.0F / M_PI;
+constexpr float DEGREES_TO_RADIANS = M_PI / 180.0F;
 }  // namespace constants
+
+/**
+ * @brief Structure representing a keypoint in an image.
+ */
+struct Keypoint {
+    float x{};         // x-coordinate
+    float y{};         // y-coordinate
+    float size{};      // size/scale of the keypoint
+    float angle{};     // orientation angle in degrees
+    float response{};  // response/score of the keypoint
+
+    Keypoint(float X, float Y, float size = constants::DEFAULT_KEYPOINT_SIZE)
+        : x(X), y(Y), size(size) {
+    }
+};
+
+/**
+ * @brief Typedef for descriptor matrix.
+ * Each row represents a descriptor for a keypoint.
+ * For BRIEF descriptors, each element is a byte (8 bits).
+ */
+using DescriptorMatrix = Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
 class FeatureDetector {
 public:
@@ -87,31 +108,31 @@ public:
 
     /**
      * @brief Detects keypoints in the given image.
-     * @param image The input image in which to detect features.
+     * @param image The input image as an Eigen matrix (grayscale, values 0-255).
      * @param keypoints Output vector of detected keypoints.
      */
-    void detect(const cv::Mat& image,                   // in
-                std::vector<cv::KeyPoint>& keypoints);  // out
+    void detect(const EigenGrayMatrix& image,       // in
+                std::vector<Keypoint>& keypoints);  // out
 
     /**
      * @brief Computes descriptors for the detected keypoints.
-     * @param image The input image in which to compute descriptors.
+     * @param image The input image as an Eigen matrix (grayscale, values 0-255).
      * @param keypoints The input vector of keypoints for which to compute descriptors.
      * @param descriptors Output matrix of computed descriptors.
      */
-    void compute(const cv::Mat& image,                  // in
-                 std::vector<cv::KeyPoint>& keypoints,  // in
-                 cv::Mat& descriptors);                 // out
+    void compute(const EigenGrayMatrix& image,      // in
+                 std::vector<Keypoint>& keypoints,  // in/out (angles are updated)
+                 DescriptorMatrix& descriptors);    // out
 
     /**
      * @brief Detects keypoints and computes descriptors in the given image.
-     * @param image The input image in which to detect features and compute descriptors.
+     * @param image The input image as an Eigen matrix (grayscale, values 0-255).
      * @param keypoints Output vector of detected keypoints.
      * @param descriptors Output matrix of computed descriptors.
      */
-    void detectAndCompute(const cv::Mat& image,                  // in
-                          std::vector<cv::KeyPoint>& keypoints,  // out
-                          cv::Mat& descriptors);                 // out
+    void detectAndCompute(const EigenGrayMatrix& image,      // in
+                          std::vector<Keypoint>& keypoints,  // out
+                          DescriptorMatrix& descriptors);    // out
 
 private:
     static constexpr std::array<std::array<int, 2>, 16> M_PIXEL_OFFSETS = {{{0, -3},
@@ -139,21 +160,35 @@ private:
 
     int m_patchSize{};
     int m_numBRIEFPairs{};
-    std::vector<std::pair<cv::Point2i, cv::Point2i>> m_briefPattern;
+    std::vector<std::pair<Eigen::Vector2i, Eigen::Vector2i>> m_briefPattern;
 
-    [[nodiscard]] bool isFASTCorner(const cv::Mat& image, int x, int y) const;
+    [[nodiscard]] bool isFASTCorner(const EigenGrayMatrix& image, int x, int y) const;
 
-    void applyNonMaxSuppression(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints) const;
+    void applyNonMaxSuppression(const EigenGrayMatrix& image,
+                                std::vector<Keypoint>& keypoints) const;
 
-    [[nodiscard]] static float computeFASTScore(const cv::Mat& image, int x, int y);
+    [[nodiscard]] static float computeFASTScore(const EigenGrayMatrix& image, int x, int y);
 
-    [[nodiscard]] float computeOrientation(const cv::Mat& image,
-                                           const cv::KeyPoint& keypoint) const;
+    [[nodiscard]] float computeOrientation(const EigenGrayMatrix& image,
+                                           const Keypoint& keypoint) const;
 
-    [[nodiscard]] cv::Mat computeBRIEFDescriptor(const cv::Mat& image,
-                                                 const cv::KeyPoint& keypoint) const;
-    void detectFASTKeypoints(const cv::Mat& image, std::vector<cv::KeyPoint>& keypoints);
-    [[nodiscard]] std::vector<std::pair<cv::Point2i, cv::Point2i>> generateBRIEFPattern() const;
+    [[nodiscard]] Eigen::Matrix<uint8_t, 1, Eigen::Dynamic> computeBRIEFDescriptor(
+        const EigenGrayMatrix& image, const Keypoint& keypoint) const;
+
+    void detectFASTKeypoints(const EigenGrayMatrix& image, std::vector<Keypoint>& keypoints);
+
+    [[nodiscard]] std::vector<std::pair<Eigen::Vector2i, Eigen::Vector2i>> generateBRIEFPattern()
+        const;
+
+    /**
+     * @brief Apply Gaussian blur to an image using Eigen.
+     * @param image Input image
+     * @param kernelSize Size of the Gaussian kernel (must be odd)
+     * @param sigma Standard deviation of the Gaussian
+     * @return Blurred image
+     */
+    [[nodiscard]] static EigenGrayMatrix gaussianBlur(const EigenGrayMatrix& image, int kernelSize,
+                                                      double sigma);
 };
 
 }  // namespace slam
