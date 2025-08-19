@@ -15,25 +15,6 @@
 
 using slam::FeatureMatcher;
 
-constexpr uint8_t popcount(int n) {
-    uint8_t count = 0;
-    while (n > 0) {
-        n &= (n - 1);
-        count++;
-    }
-    return count;
-}
-
-constexpr std::array<uint8_t, slam::constants::POSSIBLE_VALUES> generatePopcountTable() {
-    std::array<uint8_t, slam::constants::POSSIBLE_VALUES> table{};
-    for (int i = 0; i < slam::constants::POSSIBLE_VALUES; ++i) {
-        table.at(i) = popcount(i);
-    }
-    return table;
-}
-
-static const auto POPCOUNT_TABLE = generatePopcountTable();
-
 FeatureMatcher::FeatureMatcher(const std::filesystem::path& configPath) {
     cv::FileStorage fs(configPath.string(), cv::FileStorage::READ);
     if (!fs.isOpened()) {
@@ -148,17 +129,6 @@ void FeatureMatcher::findBestMatchesL2(const Eigen::MatrixXf& descriptors1,
     }
 }
 
-template <typename Derived1, typename Derived2>
-static int calculateHammingDistance(const Eigen::MatrixBase<Derived1>& d1,
-                                    const Eigen::MatrixBase<Derived2>& d2) {
-    int dist = 0;
-    for (Eigen::Index k = 0; k < d1.size(); ++k) {
-        const uint32_t index = d1(k) ^ d2(k);
-        dist += POPCOUNT_TABLE.at(index);
-    }
-    return dist;
-}
-
 static void updateBestMatches(int dist, Eigen::Index j, int& bestDist, int& secondBestDist,
                               Eigen::Index& bestIndex) {
     if (dist < bestDist) {
@@ -186,7 +156,7 @@ void FeatureMatcher::findBestMatchesHamming(const slam::DescriptorMatrix& descri
         Eigen::Index bestIndex = -1;
 
         for (Eigen::Index j = 0; j < desc2Count; ++j) {
-            int dist = calculateHammingDistance(descriptors1.row(i), descriptors2.row(j));
+            int dist = slam::calculateHammingDistance(descriptors1.row(i), descriptors2.row(j));
 
             if (nonEmptyKeypoints) {
                 const float dx = keypoints1[i].x - keypoints2[j].x;

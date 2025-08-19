@@ -1,0 +1,10 @@
+%YAML:1.0
+---
+MinDbSize: 2
+MinFramesDifference: 2
+MinAbsoluteScore: 0.005
+RelativeScoreFactor: 1.5
+MinMatchesForPnP: 20
+MinInliersForPnP: 5
+RansacMaxIterations: 100
+RansacReprojectionThreshold: 2.0

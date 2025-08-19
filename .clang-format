@@ -21,8 +21,11 @@ IncludeCategories:
     Priority:        3
   - Regex:           '^<spdlog/.*>'
     Priority:        4
-  - Regex:           '^<yaml-cpp/.*>'
+  - Regex:           '<fbo/.*>'
     Priority:        5
+  - Regex:           '^<openmp/.*>'
+    Priority:        6
+
   # Project headers
   - Regex:           '^<slam/.*>'
-    Priority:        6
+    Priority:        7

@@ -20,7 +20,6 @@ target_link_libraries(
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen
-        yaml-cpp::yaml-cpp
 )
 
 install(TARGETS cli DESTINATION bin)

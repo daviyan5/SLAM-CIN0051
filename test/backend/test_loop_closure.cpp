@@ -1,80 +1,97 @@
 #include <filesystem>
-#include <spdlog/spdlog.h>
-#include <vector>
+#include <iostream>
 #include <string>
+#include <vector>
+
+#include <Eigen/Dense>
+
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/imgcodecs.hpp>
+
+#include <spdlog/spdlog.h>
 
 #include <slam/backend/loop_closure.hpp>
+#include <slam/common/common.hpp>
+#include <slam/frontend/feature_detector.hpp>
+#include <slam/frontend/feature_matcher.hpp>
 
-int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <path_to_project_root>" << std::endl;
-        return -1;
-    }
+int main() {
     spdlog::set_level(spdlog::level::info);
 
-    const std::string project_root = argv[1];
-    const std::string vocab_file = project_root + "/data/vocabulary/orb_mur.fbow";
-    const std::string config_file = project_root + "/config/loop_closure.yaml";
+    const std::string vocabFile = "./data/vocabulary/orb_mur.fbow";
+    const std::string loopClosureConfigFile = "./data/loop_closure.yml";
+    const std::string detectorConfigFile = "./data/feature_detector.yml";
+    const std::string matcherConfigFile = "./data/feature_matcher.yml";
+    const std::string cameraConfigFile = "./data/camera.yml";
+    const std::string imageDirectory = "./data/images_test_loop2/";
 
-    if (!std::filesystem::exists(vocab_file)) {
-        SPDLOG_ERROR("Vocabulary file not found at: {}", vocab_file);
-        return -1;
+    for (const auto& path : {vocabFile, loopClosureConfigFile, detectorConfigFile,
+                             matcherConfigFile, cameraConfigFile}) {
+        if (!std::filesystem::exists(path)) {
+            spdlog::error("Required file does not exist: {}", path);
+            return -1;
+        }
     }
-    if (!std::filesystem::exists(config_file)) {
-        SPDLOG_ERROR("Config file not found at: {}", config_file);
-        return -1;
-    }
-    
-    slam::Camera camera;
-    camera.K = (cv::Mat_<double>(3, 3) << 517.3, 0, 318.6, 0, 516.5, 255.3, 0, 0, 1);
-    camera.D = cv::Mat::zeros(5, 1, CV_64F);
-
     try {
-        slam::LoopClosure detector(vocab_file, config_file);
-        auto orb = cv::ORB::create();
-        
-        std::vector<cv::KeyPoint> last_keypoints;
-        cv::Mat last_descriptors;
+        slam::Camera camera(cameraConfigFile);
+        slam::FeatureDetector featureDetector(detectorConfigFile);
+        slam::FeatureMatcher matcher(matcherConfigFile);
+        slam::LoopClosure detector(vocabFile, loopClosureConfigFile, matcher);
 
-        for (int i = 0; i < 10; ++i) {
-            std::string path = project_root + "/data/images_test_loop2/" + std::to_string(i) + ".png";
-            cv::Mat img = cv::imread(path, cv::IMREAD_GRAYSCALE);
+        std::vector<slam::Keypoint> lastKeypoints;
+        slam::DescriptorMatrix lastDescriptors;
+
+        spdlog::info("Processing image sequence to build database...");
+        constexpr int N_IMAGES = 10;  // Number of images to process
+        for (int i = 0; i < N_IMAGES; ++i) {
+            std::string imagePath = imageDirectory + std::to_string(i) + ".png";
+            cv::Mat img = cv::imread(imagePath, cv::IMREAD_GRAYSCALE);
             if (img.empty()) {
-                SPDLOG_ERROR("Failed to load image: {}", path);
-                return -1;
+                spdlog::error("Failed to load image: {}", imagePath);
+                continue;
             }
 
-            std::vector<cv::KeyPoint> kps;
-            cv::Mat desc;
-            orb->detectAndCompute(img, cv::Mat(), kps, desc);
+            slam::EigenGrayMatrix eigenImage;
+            cv::cv2eigen(img, eigenImage);
 
-            std::vector<cv::Point3f> map_points;
-            for(const auto& kp : kps) {
-                map_points.emplace_back(kp.pt.x, kp.pt.y, 1.0);
+            std::vector<slam::Keypoint> kpsSlam;
+            slam::DescriptorMatrix descSlam;
+
+            featureDetector.detectAndCompute(eigenImage, kpsSlam, descSlam);
+
+            std::vector<Eigen::Vector3d> mapPoints;
+            mapPoints.reserve(kpsSlam.size());
+
+            for (const auto& kp : kpsSlam) {
+                mapPoints.emplace_back(kp.x, kp.y, 1.0);
             }
-            
-            detector.addKeyframe(i, desc, kps, map_points);
-            
-            if (i == 9) {
-                last_keypoints = kps;
-                last_descriptors = desc;
+
+            detector.addKeyframe(i, descSlam, kpsSlam, mapPoints);
+
+            if (i == N_IMAGES - 1) {
+                lastKeypoints = kpsSlam;
+                lastDescriptors = descSlam;
             }
         }
-        
-        auto result = detector.detect(last_descriptors, last_keypoints, camera);
 
-        if (result && result->matched_keyframe_id == 0) {
-            SPDLOG_INFO("Loop with initial keyframe {}.", result->matched_keyframe_id);
+        spdlog::info("Attempting to detect loop with the last keyframe...");
+        auto result = detector.detect(lastDescriptors, lastKeypoints, camera);
+
+        if (result && result->matchedKeyframeId == 0) {
+            spdlog::info("SUCCESS: Loop detected with the correct keyframe (ID {}).",
+                         result->matchedKeyframeId);
         } else if (result) {
-            SPDLOG_INFO("Loop detected with keyframe {}.", result->matched_keyframe_id);
+            spdlog::error("FAILURE: Loop detected with incorrect keyframe (ID {}). Expected 0.",
+                          result->matchedKeyframeId);
             return -1;
         } else {
-            SPDLOG_ERROR("No loop was detected or verified.");
+            spdlog::error("FAILURE: No loop was detected or verified.");
             return -1;
         }
 
     } catch (const std::exception& e) {
-        SPDLOG_ERROR("An error occurred: {}", e.what());
+        spdlog::error("An unhandled exception occurred: {}", e.what());
         return -1;
     }
 

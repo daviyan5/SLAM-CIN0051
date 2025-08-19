@@ -1,72 +1,104 @@
-#include <algorithm>
+#include <filesystem>
 #include <random>
+#include <stdexcept>
+#include <string>
+
+#include <Eigen/SVD>
+
+#include <opencv2/core.hpp>
+#include <opencv2/core/eigen.hpp>
 
 #include <spdlog/spdlog.h>
-
-#include <yaml-cpp/yaml.h>
 
 #include <slam/backend/loop_closure.hpp>
 
 using slam::LoopClosure;
 
-namespace {
-constexpr uint8_t POPCOUNT_LUT[256] = {
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
-}  // namespace
-
-LoopClosure::LoopClosure(const std::string& vocabPath, const std::string& configPath) {
+LoopClosure::LoopClosure(const std::string& vocabPath, const std::string& configPath,
+                         const FeatureMatcher& matcher)
+    : m_matcher(matcher) {
     loadParameters(configPath);
 
-    SPDLOG_INFO("Loading fbow vocabulary from: {}", vocabPath);
+    spdlog::info("Loading fbow vocabulary from: {}", vocabPath);
     m_vocabulary.readFromFile(vocabPath);
     if (m_vocabulary.size() == 0) {
-        SPDLOG_ERROR("Failed to load fbow vocabulary!");
-        throw std::runtime_error("Vocabulary does not exist or is empty at path: " + vocabPath);
+        throw std::runtime_error("Vocabulary is empty at path: " + vocabPath);
     }
-    SPDLOG_INFO("LoopClosure module initialized.");
+    spdlog::info("LoopClosure module initialized.");
 }
 
-void LoopClosure::loadParameters(const std::string& configPath) {
-    SPDLOG_INFO("Loading loop closure parameters from: {}", configPath);
-    YAML::Node config = YAML::LoadFile(configPath);
+void LoopClosure::loadParameters(const std::filesystem::path& configPath) {
+    SPDLOG_INFO("Loading Loop Closure parameters from: {}", configPath.string());
 
-    if (!config["loop_closure"]) {
-        throw std::runtime_error("Config file is missing 'loop_closure' root node.");
+    cv::FileStorage fs(configPath.string(), cv::FileStorage::READ);
+    if (!fs.isOpened()) {
+        throw std::runtime_error("Could not open Loop Closure config file: " + configPath.string());
     }
-    auto lcConfig = config["loop_closure"];
 
-    m_params.minDbSize = lcConfig["min_db_size"].as<int>();
-    m_params.minFramesDifference = lcConfig["min_frames_difference"].as<int>();
-    m_params.minAbsoluteScore = lcConfig["min_absolute_score"].as<double>();
-    m_params.relativeScoreFactor = lcConfig["relative_score_factor"].as<double>();
-    m_params.minMatchesForPnp = lcConfig["min_matches_for_pnp"].as<int>();
-    m_params.minInliers = lcConfig["min_inliers"].as<int>();
+    fs["MinDbSize"] >> m_params.minDbSize;
+    if (m_params.minDbSize < 0) {
+        throw std::runtime_error("'MinDbSize' must be a non-negative integer.");
+    }
 
-    // Optional parameters with defaults
-    if (lcConfig["ransac_reprojection_threshold"]) {
-        m_params.ransacReprojectionThreshold =
-            lcConfig["ransac_reprojection_threshold"].as<double>();
+    fs["MinFramesDifference"] >> m_params.minFramesDifference;
+    if (m_params.minFramesDifference <= 0) {
+        throw std::runtime_error("'MinFramesDifference' must be a positive integer.");
     }
-    if (lcConfig["ransac_max_iterations"]) {
-        m_params.ransacMaxIterations = lcConfig["ransac_max_iterations"].as<int>();
+
+    fs["MinAbsoluteScore"] >> m_params.minAbsoluteScore;
+    if (m_params.minAbsoluteScore < 0.0) {
+        throw std::runtime_error("'MinAbsoluteScore' must be non-negative.");
     }
-    if (lcConfig["ransac_confidence"]) {
-        m_params.ransacConfidence = lcConfig["ransac_confidence"].as<double>();
+
+    fs["RelativeScoreFactor"] >> m_params.relativeScoreFactor;
+    if (m_params.relativeScoreFactor < 0.0) {
+        throw std::runtime_error("'RelativeScoreFactor' must be non-negative.");
     }
+
+    fs["MinMatchesForPnP"] >> m_params.minMatchesForPnP;
+    if (m_params.minMatchesForPnP <= 3) {
+        throw std::runtime_error("'MinMatchesForPnP' must be greater than 3 for PnP.");
+    }
+
+    fs["MinInliersForPnP"] >> m_params.minInliersForPnP;
+    if (m_params.minInliersForPnP <= 3) {
+        throw std::runtime_error("'MinInliersForPnP' must be greater than 3 for PnP.");
+    }
+    if (m_params.minInliersForPnP > m_params.minMatchesForPnP) {
+        throw std::runtime_error("'MinInliersForPnP' cannot be greater than 'MinMatchesForPnP'.");
+    }
+
+    fs["RansacMaxIterations"] >> m_params.ransacMaxIterations;
+    if (m_params.ransacMaxIterations <= 0) {
+        throw std::runtime_error("'RansacMaxIterations' must be a positive integer.");
+    }
+
+    fs["RansacReprojectionThreshold"] >> m_params.ransacReprojectionThreshold;
+    if (m_params.ransacReprojectionThreshold <= 0.0) {
+        throw std::runtime_error("'RansacReprojectionThreshold' must be a positive value.");
+    }
+
+    fs.release();
+
+    SPDLOG_DEBUG("Loop Closure Configuration Loaded:");
+    SPDLOG_DEBUG("  MinDbSize: {}", m_params.minDbSize);
+    SPDLOG_DEBUG("  MinFramesDifference: {}", m_params.minFramesDifference);
+    SPDLOG_DEBUG("  MinAbsoluteScore: {:.3f}", m_params.minAbsoluteScore);
+    SPDLOG_DEBUG("  RelativeScoreFactor: {:.3f}", m_params.relativeScoreFactor);
+    SPDLOG_DEBUG("  MinMatchesForPnP: {}", m_params.minMatchesForPnP);
+    SPDLOG_DEBUG("  MinInliersForPnP: {}", m_params.minInliersForPnP);
+    SPDLOG_DEBUG("  RansacMaxIterations: {}", m_params.ransacMaxIterations);
+    SPDLOG_DEBUG("  RansacReprojectionThreshold: {:.3f}", m_params.ransacReprojectionThreshold);
+
+    SPDLOG_INFO("Loop Closure parameters loaded successfully.");
 }
 
-void LoopClosure::addKeyframe(int keyframeId, const slam::DescriptorMatrix& descriptors,
-                              const std::vector<slam::Keypoint>& keypoints,
+void LoopClosure::addKeyframe(int keyframeId, const DescriptorMatrix& descriptors,
+                              const std::vector<Keypoint>& keypoints,
                               const std::vector<Eigen::Vector3d>& mapPoints) {
     KeyframeData data;
-    cv::Mat cvDescriptors = descriptorsToMat(descriptors);
+    cv::Mat cvDescriptors;
+    cv::eigen2cv(descriptors, cvDescriptors);
     data.bowVector = m_vocabulary.transform(cvDescriptors);
     data.keypoints = keypoints;
     data.mapPoints = mapPoints;
@@ -74,318 +106,169 @@ void LoopClosure::addKeyframe(int keyframeId, const slam::DescriptorMatrix& desc
     m_keyframeDatabase[keyframeId] = data;
     m_keyframeDescriptors[keyframeId] = descriptors;
     m_lastKeyframeId = keyframeId;
-
-    SPDLOG_DEBUG("Added keyframe {} to the database.", keyframeId);
 }
 
-std::optional<slam::LoopResult> LoopClosure::detect(const slam::DescriptorMatrix& descriptors,
-                                                    const std::vector<slam::Keypoint>& keypoints,
-                                                    const slam::Camera& camera) {
+std::optional<slam::LoopResult> LoopClosure::detect(const DescriptorMatrix& descriptors,
+                                                    const std::vector<Keypoint>& keypoints,
+                                                    const Camera& camera) {
     if (m_keyframeDatabase.size() < static_cast<size_t>(m_params.minDbSize)) {
-        SPDLOG_DEBUG("Not enough keyframes in the database for loop detection.");
         return std::nullopt;
     }
 
-    cv::Mat cvDescriptors = descriptorsToMat(descriptors);
+    cv::Mat cvDescriptors;
+    cv::eigen2cv(descriptors, cvDescriptors);
     fbow::BoWVector currentBowVector = m_vocabulary.transform(cvDescriptors);
-    std::vector<CandidateMatch> allMatches;
+
+    if (currentBowVector.empty()) {
+        return std::nullopt;
+    }
+
+    int bestCandidateId = -1;
+    double maxScore = 0.0;
+    double secondMaxScore = 0.0;
 
     for (const auto& [id, data] : m_keyframeDatabase) {
-        if (id == m_lastKeyframeId) {
+        if (std::abs(m_lastKeyframeId - id) < m_params.minFramesDifference) {
             continue;
         }
         double score = fbow::BoWVector::score(currentBowVector, data.bowVector);
-        allMatches.push_back({score, id});
-    }
-
-    if (allMatches.empty()) {
-        SPDLOG_DEBUG("No candidates found in the database.");
-        return std::nullopt;
-    }
-
-    std::sort(allMatches.begin(), allMatches.end(),
-              [](const auto& a, const auto& b) { return a.score > b.score; });
-
-    const auto& bestCandidate = allMatches[0];
-
-    if (std::abs(m_lastKeyframeId - bestCandidate.id) < m_params.minFramesDifference) {
-        SPDLOG_DEBUG("Best candidate (ID {}) is too recent. Skipping.", bestCandidate.id);
-        return std::nullopt;
-    }
-
-    bool isSignificantEnough = true;
-    if (allMatches.size() > 1) {
-        if (bestCandidate.score < m_params.relativeScoreFactor * allMatches[1].score) {
-            isSignificantEnough = false;
+        if (score > maxScore) {
+            secondMaxScore = maxScore;
+            maxScore = score;
+            bestCandidateId = id;
+        } else if (score > secondMaxScore) {
+            secondMaxScore = score;
         }
     }
 
-    if (!(bestCandidate.score > m_params.minAbsoluteScore && isSignificantEnough)) {
-        SPDLOG_DEBUG("Best candidate (ID {}) score {} not significant enough.", bestCandidate.id,
-                     bestCandidate.score);
+    if (bestCandidateId == -1 || maxScore < m_params.minAbsoluteScore ||
+        maxScore < m_params.relativeScoreFactor * secondMaxScore) {
         return std::nullopt;
     }
 
-    SPDLOG_INFO("BoW candidate found: ID {}. Proceeding to geometric verification.",
-                bestCandidate.id);
+    spdlog::info("BoW candidate found: ID {}. Verifying geometry...", bestCandidateId);
+    return verifyGeometricConsistency(descriptors, keypoints, bestCandidateId, camera);
+}
 
-    // Match descriptors using Hamming distance
-    std::vector<Match> matches =
-        matchDescriptors(descriptors, m_keyframeDescriptors.at(bestCandidate.id));
+std::optional<slam::LoopResult> LoopClosure::verifyGeometricConsistency(
+    const DescriptorMatrix& queryDescriptors, const std::vector<Keypoint>& queryKeypoints,
+    int candidateId, const Camera& camera) {
+    std::vector<Match> matches;
+    m_matcher.get().match(queryDescriptors, m_keyframeDescriptors.at(candidateId), matches,
+                          queryKeypoints, m_keyframeDatabase.at(candidateId).keypoints);
+
+    if (matches.size() < static_cast<size_t>(m_params.minMatchesForPnP)) {
+        return std::nullopt;
+    }
 
     std::vector<Eigen::Vector3d> points3d;
     std::vector<Eigen::Vector2d> points2d;
+    points3d.reserve(matches.size());
+    points2d.reserve(matches.size());
     for (const auto& match : matches) {
-        points2d.emplace_back(keypoints[match.queryIdx].x, keypoints[match.queryIdx].y);
-        points3d.push_back(m_keyframeDatabase.at(bestCandidate.id).mapPoints[match.trainIdx]);
+        points2d.emplace_back(queryKeypoints[match.queryIdx].x, queryKeypoints[match.queryIdx].y);
+        points3d.push_back(m_keyframeDatabase.at(candidateId).mapPoints[match.trainIdx]);
     }
 
-    if (points2d.size() < static_cast<size_t>(m_params.minMatchesForPnp)) {
-        SPDLOG_WARN("Not enough matches ({}) for geometric verification.", points2d.size());
-        return std::nullopt;
-    }
+    Eigen::Matrix3d bestRotation = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d bestTranslation = Eigen::Vector3d::Zero();
+    int maxInliers = 0;
 
-    // Extract camera parameters
-    auto [K, D] = extractCameraParameters(camera);
+    std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<int> dist(0, static_cast<int>(matches.size()) - 1);
 
-    Eigen::Vector3d rvec;
-    Eigen::Vector3d tvec;
-    std::vector<int> inliers;
+    for (int i = 0; i < m_params.ransacMaxIterations; ++i) {
+        std::vector<Eigen::Vector3d> sample3d;
+        std::vector<Eigen::Vector2d> sample2d;
+        std::vector<int> sampleIndices;
 
-    if (solvePnPRansac(points3d, points2d, K, D, rvec, tvec, inliers)) {
-        if (inliers.size() >= static_cast<size_t>(m_params.minInliers)) {
-            SPDLOG_INFO("Geometric verification succeeded: Found {} inliers.", inliers.size());
-
-            slam::LoopResult result;
-            result.matchedKeyframeId = bestCandidate.id;
-
-            Eigen::Matrix3d rotationMatrix = rodrigues(rvec);
-            Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
-            transform.block<3, 3>(0, 0) = rotationMatrix;
-            transform.block<3, 1>(0, 3) = tvec;
-
-            result.relativeTransform = transform;
-            return result;
+        constexpr int sampleSize = 6;
+        while (sampleIndices.size() < sampleSize) {
+            int idx = dist(rng);
+            if (std::find(sampleIndices.begin(), sampleIndices.end(), idx) == sampleIndices.end()) {
+                sampleIndices.push_back(idx);
+                sample3d.push_back(points3d[idx]);
+                sample2d.push_back(points2d[idx]);
+            }
         }
-        SPDLOG_WARN("Geometric verification FAILED: Only {} inliers found (minimum required: {}).",
-                    inliers.size(), m_params.minInliers);
-    } else {
-        SPDLOG_WARN("PnP solver failed to find a solution.");
+
+        Eigen::Matrix3d rotation;
+        Eigen::Vector3d translation;
+        if (!solvePnP(sample3d, sample2d, rotation, translation)) {
+            continue;
+        }
+
+        int currentInliers = 0;
+        for (size_t j = 0; j < points3d.size(); ++j) {
+            Eigen::Vector3d transformedPoint = rotation * points3d[j] + translation;
+            if (transformedPoint.z() <= 0) {
+                continue;
+            }
+
+            Eigen::Vector3d projected =
+                camera.getIntrinsicMatrix() * (transformedPoint / transformedPoint.z());
+            double error = (points2d[j] - projected.head<2>()).norm();
+
+            if (error < m_params.ransacReprojectionThreshold) {
+                currentInliers++;
+            }
+        }
+
+        if (currentInliers > maxInliers) {
+            maxInliers = currentInliers;
+            bestRotation = rotation;
+            bestTranslation = translation;
+        }
     }
 
+    if (maxInliers >= m_params.minInliersForPnP) {
+        spdlog::info("Geometric verification SUCCEEDED: Found {} inliers.", maxInliers);
+        LoopResult result;
+        result.matchedKeyframeId = candidateId;
+        result.relativeTransform = Eigen::Matrix4d::Identity();
+        result.relativeTransform.block<3, 3>(0, 0) = bestRotation;
+        result.relativeTransform.block<3, 1>(0, 3) = bestTranslation;
+        return result;
+    }
+
+    spdlog::warn("Geometric verification FAILED: Only {} inliers found.", maxInliers);
     return std::nullopt;
 }
 
-Eigen::Matrix3d LoopClosure::rodrigues(const Eigen::Vector3d& rvec) {
-    double theta = rvec.norm();
+bool LoopClosure::solvePnP(const std::vector<Eigen::Vector3d>& points3d,
+                           const std::vector<Eigen::Vector2d>& points2d, Eigen::Matrix3d& rotation,
+                           Eigen::Vector3d& translation) {
+    static constexpr int minPointsForPnP = 6;
+    static constexpr int projectionMatrixCols = 12;
 
-    if (theta < 1e-6) {
-        // Small angle approximation
-        return Eigen::Matrix3d::Identity();
-    }
-
-    Eigen::Vector3d k = rvec / theta;
-
-    // Cross-product matrix
-    Eigen::Matrix3d K;
-    K << 0, -k.z(), k.y(), k.z(), 0, -k.x(), -k.y(), k.x(), 0;
-
-    // Rodrigues' rotation formula
-    Eigen::Matrix3d rotationMatrix =
-        Eigen::Matrix3d::Identity() + std::sin(theta) * K + (1 - std::cos(theta)) * K * K;
-
-    return rotationMatrix;
-}
-
-Eigen::Vector2d LoopClosure::projectPoint(const Eigen::Vector3d& point3d, const Eigen::Matrix3d& K,
-                                          const Eigen::VectorXd& D) {
-    // Normalize to camera plane
-    double x = point3d.x() / point3d.z();
-    double y = point3d.y() / point3d.z();
-
-    // Apply distortion
-    double r2 = x * x + y * y;
-    double k1 = D.size() > 0 ? D(0) : 0.0;
-    double k2 = D.size() > 1 ? D(1) : 0.0;
-    double p1 = D.size() > 2 ? D(2) : 0.0;
-    double p2 = D.size() > 3 ? D(3) : 0.0;
-    double k3 = D.size() > 4 ? D(4) : 0.0;
-
-    double r4 = r2 * r2;
-    double r6 = r4 * r2;
-    double radialDistortion = 1 + k1 * r2 + k2 * r4 + k3 * r6;
-
-    double xDistorted = x * radialDistortion + 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
-    double yDistorted = y * radialDistortion + 2 * p2 * x * y + p1 * (r2 + 2 * y * y);
-
-    // Project to image plane
-    double u = K(0, 0) * xDistorted + K(0, 2);
-    double v = K(1, 1) * yDistorted + K(1, 2);
-
-    return Eigen::Vector2d(u, v);
-}
-
-bool LoopClosure::solvePnPRansac(const std::vector<Eigen::Vector3d>& points3d,
-                                 const std::vector<Eigen::Vector2d>& points2d,
-                                 const Eigen::Matrix3d& K, const Eigen::VectorXd& D,
-                                 Eigen::Vector3d& rvec, Eigen::Vector3d& tvec,
-                                 std::vector<int>& inliers) const {
-    if (points3d.size() != points2d.size() || points3d.size() < 4) {
+    size_t n = points3d.size();
+    if (n < minPointsForPnP) {
         return false;
     }
 
-    const size_t nPoints = points3d.size();
-    constexpr int MIN_SET_SIZE = 4;  // Minimum points for P3P
-
-    std::random_device randomDevice;
-    std::mt19937 generator(randomDevice());
-    std::uniform_int_distribution<> distribution(0, static_cast<int>(nPoints) - 1);
-
-    int bestInliersCount = 0;
-    Eigen::Vector3d bestRvec;
-    Eigen::Vector3d bestTvec;
-    std::vector<int> bestInliers;
-
-    for (int iter = 0; iter < m_params.ransacMaxIterations; ++iter) {
-        // Select random subset
-        std::vector<int> sampleIndices;
-        sampleIndices.reserve(MIN_SET_SIZE);
-
-        while (sampleIndices.size() < MIN_SET_SIZE) {
-            int idx = distribution(generator);
-            if (std::find(sampleIndices.begin(), sampleIndices.end(), idx) == sampleIndices.end()) {
-                sampleIndices.push_back(idx);
-            }
-        }
-
-        // Simplified P3P solver (in production, use a proper implementation)
-        // Here we use a basic approach for demonstration
-        Eigen::Vector3d centroid3d = Eigen::Vector3d::Zero();
-        Eigen::Vector2d centroid2d = Eigen::Vector2d::Zero();
-        for (int idx : sampleIndices) {
-            centroid3d += points3d[idx];
-            centroid2d += points2d[idx];
-        }
-        centroid3d /= MIN_SET_SIZE;
-        centroid2d /= MIN_SET_SIZE;
-
-        // Simple initial estimate
-        Eigen::Vector3d testTvec = centroid3d;
-        Eigen::Vector3d testRvec = Eigen::Vector3d::Zero();
-
-        // Count inliers
-        std::vector<int> currentInliers;
-        for (size_t i = 0; i < nPoints; ++i) {
-            // Transform and project point
-            Eigen::Vector3d rotated = rodrigues(testRvec) * points3d[i] + testTvec;
-
-            if (rotated.z() > 0) {
-                Eigen::Vector2d projected = projectPoint(rotated, K, D);
-
-                // Compute reprojection error
-                double error = (projected - points2d[i]).norm();
-
-                if (error < m_params.ransacReprojectionThreshold) {
-                    currentInliers.push_back(static_cast<int>(i));
-                }
-            }
-        }
-
-        if (static_cast<int>(currentInliers.size()) > bestInliersCount) {
-            bestInliersCount = static_cast<int>(currentInliers.size());
-            bestRvec = testRvec;
-            bestTvec = testTvec;
-            bestInliers = currentInliers;
-
-            // Check for early termination
-            double inlierRatio =
-                static_cast<double>(bestInliersCount) / static_cast<double>(nPoints);
-            if (inlierRatio > 0.8) {
-                break;
-            }
-        }
+    Eigen::MatrixXd A(2 * n, projectionMatrixCols);
+    for (long i = 0; i < n; ++i) {
+        const double X = points3d[i].x(), Y = points3d[i].y(), Z = points3d[i].z();
+        const double u = points2d[i].x(), v = points2d[i].y();
+        A.row(2 * i) << X, Y, Z, 1, 0, 0, 0, 0, -u * X, -u * Y, -u * Z, -u;
+        A.row(2 * i + 1) << 0, 0, 0, 0, X, Y, Z, 1, -v * X, -v * Y, -v * Z, -v;
     }
 
-    if (bestInliersCount >= m_params.minInliers) {
-        rvec = bestRvec;
-        tvec = bestTvec;
-        inliers = bestInliers;
-        return true;
-    }
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeFullV);
+    Eigen::VectorXd p = svd.matrixV().col(projectionMatrixCols - 1);
 
-    return false;
-}
+    Eigen::Matrix<double, 3, 4> P = Eigen::Map<Eigen::Matrix<double, 3, 4>>(p.data());
 
-int LoopClosure::computeHammingDistance(const Eigen::Matrix<uint8_t, 1, Eigen::Dynamic>& desc1,
-                                        const Eigen::Matrix<uint8_t, 1, Eigen::Dynamic>& desc2) {
-    if (desc1.cols() != desc2.cols()) {
-        return std::numeric_limits<int>::max();
-    }
+    Eigen::Matrix3d R = P.block<3, 3>(0, 0);
+    Eigen::Vector3d t = P.col(3);
 
-    int distance = 0;
-    for (Eigen::Index i = 0; i < desc1.cols(); ++i) {
-        uint8_t xorValue = desc1(0, i) ^ desc2(0, i);
-        distance += POPCOUNT_LUT[xorValue];
-    }
-    return distance;
-}
+    Eigen::JacobiSVD<Eigen::Matrix3d> svdR(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    double det = (svdR.matrixU() * svdR.matrixV().transpose()).determinant();
+    Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+    I(2, 2) = det;
 
-cv::Mat LoopClosure::descriptorsToMat(const slam::DescriptorMatrix& descriptors) {
-    cv::Mat cvDescriptors(static_cast<int>(descriptors.rows()),
-                          static_cast<int>(descriptors.cols()), CV_8UC1);
+    rotation = svdR.matrixU() * I * svdR.matrixV().transpose();
+    translation = t / R.norm();
 
-    for (int i = 0; i < descriptors.rows(); ++i) {
-        for (int j = 0; j < descriptors.cols(); ++j) {
-            cvDescriptors.at<uint8_t>(i, j) = descriptors(i, j);
-        }
-    }
-
-    return cvDescriptors;
-}
-
-std::pair<Eigen::Matrix3d, Eigen::VectorXd> LoopClosure::extractCameraParameters(
-    const slam::Camera& camera) {
-    // This is a workaround since Camera's members are private
-    // In production, you should add getter methods to the Camera class
-    // For now, we'll create dummy parameters
-
-    // Typical camera intrinsics (these should come from the Camera object)
-    Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
-    K(0, 0) = 500.0;  // fx
-    K(1, 1) = 500.0;  // fy
-    K(0, 2) = 320.0;  // cx
-    K(1, 2) = 240.0;  // cy
-
-    // Typical distortion coefficients
-    Eigen::VectorXd D(5);
-    D << 0.0, 0.0, 0.0, 0.0, 0.0;
-
-    return {K, D};
-}
-
-std::vector<slam::Match> LoopClosure::matchDescriptors(
-    const slam::DescriptorMatrix& queryDescriptors,
-    const slam::DescriptorMatrix& trainDescriptors) const {
-    std::vector<slam::Match> matches;
-    matches.reserve(queryDescriptors.rows());
-
-    for (int i = 0; i < queryDescriptors.rows(); ++i) {
-        int bestDistance = std::numeric_limits<int>::max();
-        int bestIdx = -1;
-
-        for (int j = 0; j < trainDescriptors.rows(); ++j) {
-            int distance = computeHammingDistance(queryDescriptors.row(i), trainDescriptors.row(j));
-
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestIdx = j;
-            }
-        }
-
-        if (bestIdx >= 0) {
-            matches.emplace_back(i, bestIdx, static_cast<float>(bestDistance));
-        }
-    }
-
-    return matches;
+    return true;
 }
