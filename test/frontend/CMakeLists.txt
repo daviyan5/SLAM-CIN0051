@@ -1,5 +1,6 @@
 add_executable(test_feature_detector test_feature_detector.cpp)
 add_executable(test_feature_matcher test_feature_matcher.cpp)
+add_executable(test_pose_estimator test_pose_estimator.cpp)
 
 target_include_directories(
     test_feature_detector
@@ -13,6 +14,16 @@ target_include_directories(
 )
 target_include_directories(
     test_feature_matcher
+    PUBLIC
+        ${SLAM_INCLUDE_DIRS}
+    PRIVATE
+        ${spdlog_INCLUDE_DIRS}
+        ${fmt_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        ${Eigen_INCLUDE_DIRS}
+)
+target_include_directories(
+    test_pose_estimator
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
@@ -42,6 +53,16 @@ target_link_libraries(
         opencv::opencv
         Eigen3::Eigen
 )
-install(TARGETS test_feature_detector test_feature_matcher
+target_link_libraries(
+    test_pose_estimator
+    PUBLIC
+        slam_frontend
+    PRIVATE
+        spdlog::spdlog
+        fmt::fmt
+        opencv::opencv
+        Eigen3::Eigen
+)
+install(TARGETS test_feature_detector test_feature_matcher test_pose_estimator
         DESTINATION test)
 

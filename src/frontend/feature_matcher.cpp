@@ -162,8 +162,10 @@ void FeatureMatcher::findBestMatchesHamming(const slam::DescriptorMatrix& descri
                 const float dx = keypoints1[i].x - keypoints2[j].x;
                 const float dy = keypoints1[i].y - keypoints2[j].y;
                 const float imageDistance = std::sqrt(dx * dx + dy * dy);
-                if (imageDistance > slam::constants::MAX_JUMP_RADIUS) {
-                    dist *= slam::constants::JUMP_PENALTY;
+                if (imageDistance > constants::MAX_JUMP_RADIUS) {
+                    float penalty =
+                        1.0f + (imageDistance / static_cast<float>(constants::MAX_JUMP_RADIUS));
+                    dist = static_cast<int>(static_cast<float>(dist) * penalty);
                 }
             }
 

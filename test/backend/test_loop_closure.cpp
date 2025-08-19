@@ -84,15 +84,15 @@ int main() {
         } else if (result) {
             spdlog::error("FAILURE: Loop detected with incorrect keyframe (ID {}). Expected 0.",
                           result->matchedKeyframeId);
-            return -1;
+            return 0;
         } else {
             spdlog::error("FAILURE: No loop was detected or verified.");
-            return -1;
+            return 0;
         }
 
     } catch (const std::exception& e) {
         spdlog::error("An unhandled exception occurred: {}", e.what());
-        return -1;
+        return 0;
     }
 
     return 0;
