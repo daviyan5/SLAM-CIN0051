@@ -59,7 +59,7 @@ int main() {
         std::vector<slam::Match> matches;
 
         auto matchStart = std::chrono::high_resolution_clock::now();
-        featureMatcher.match(descriptors1, descriptors2, matches);
+        featureMatcher.match(descriptors1, descriptors2, matches, keypoints1, keypoints2);
         auto matchEnd = std::chrono::high_resolution_clock::now();
 
         auto matchDuration =

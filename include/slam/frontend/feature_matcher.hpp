@@ -10,6 +10,8 @@
 namespace slam {
 namespace constants {
 constexpr uint32_t POSSIBLE_VALUES = 1 << 8;
+constexpr uint32_t MAX_JUMP_RADIUS = 100;
+constexpr uint32_t JUMP_PENALTY = 10;
 }
 
 /**
@@ -58,9 +60,12 @@ public:
      * @param matches The output vector of matches. If filtering is enabled, this will
      * contain the top 'goodMatchesCount' matches. Otherwise, it will
      * contain the single best match for each query descriptor.
+     * @param keypoints1 Optional vector of keypoints corresponding to descriptors1.
+     * @param keypoints2 Optional vector of keypoints corresponding to descriptors2.
      */
     void match(const DescriptorMatrix& descriptors1, const DescriptorMatrix& descriptors2,
-               std::vector<Match>& matches) const;
+               std::vector<Match>& matches, const std::vector<Keypoint>& keypoints1 = {},
+               const std::vector<Keypoint>& keypoints2 = {}) const;
 
 private:
     void validateInputs(const DescriptorMatrix& d1, const DescriptorMatrix& d2) const;
@@ -69,9 +74,11 @@ private:
                                   const Eigen::MatrixXf& descriptors2,
                                   std::vector<Match>& bestMatches);
 
-    static void findBestMatchesHamming(const DescriptorMatrix& descriptors1,
-                                       const DescriptorMatrix& descriptors2,
-                                       std::vector<Match>& bestMatches);
+    void findBestMatchesHamming(const DescriptorMatrix& descriptors1,
+                                const DescriptorMatrix& descriptors2,
+                                const std::vector<Keypoint>& keypoints1,
+                                const std::vector<Keypoint>& keypoints2,
+                                std::vector<Match>& bestMatches) const;
 
     void filterAndSortMatches(std::vector<Match>& matchesToFilter) const;
 

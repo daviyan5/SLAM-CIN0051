@@ -89,7 +89,9 @@ FeatureMatcher::FeatureMatcher(const std::filesystem::path& configPath) {
 
 void FeatureMatcher::match(const slam::DescriptorMatrix& descriptors1,
                            const slam::DescriptorMatrix& descriptors2,
-                           std::vector<slam::Match>& matches) const {
+                           std::vector<slam::Match>& matches,
+                           const std::vector<Keypoint>& keypoints1,
+                           const std::vector<Keypoint>& keypoints2) const {
     matches.clear();
     validateInputs(descriptors1, descriptors2);
 
@@ -98,7 +100,7 @@ void FeatureMatcher::match(const slam::DescriptorMatrix& descriptors1,
 
     std::vector<slam::Match> allBestMatches;
     if (m_distanceType == DistanceType::HAMMING) {
-        findBestMatchesHamming(descriptors1, descriptors2, allBestMatches);
+        findBestMatchesHamming(descriptors1, descriptors2, keypoints1, keypoints2, allBestMatches);
     } else {
         throw std::runtime_error("L2 distance requires float descriptors. Use the float overload.");
     }
@@ -146,32 +148,71 @@ void FeatureMatcher::findBestMatchesL2(const Eigen::MatrixXf& descriptors1,
     }
 }
 
+template <typename Derived1, typename Derived2>
+static int calculateHammingDistance(const Eigen::MatrixBase<Derived1>& d1,
+                                    const Eigen::MatrixBase<Derived2>& d2) {
+    int dist = 0;
+    for (Eigen::Index k = 0; k < d1.size(); ++k) {
+        const uint32_t index = d1(k) ^ d2(k);
+        dist += POPCOUNT_TABLE.at(index);
+    }
+    return dist;
+}
+
+static void updateBestMatches(int dist, Eigen::Index j, int& bestDist, int& secondBestDist,
+                              Eigen::Index& bestIndex) {
+    if (dist < bestDist) {
+        secondBestDist = bestDist;
+        bestDist = dist;
+        bestIndex = j;
+    } else if (dist < secondBestDist) {
+        secondBestDist = dist;
+    }
+}
+
 void FeatureMatcher::findBestMatchesHamming(const slam::DescriptorMatrix& descriptors1,
                                             const slam::DescriptorMatrix& descriptors2,
-                                            std::vector<slam::Match>& bestMatches) {
+                                            const std::vector<Keypoint>& keypoints1,
+                                            const std::vector<Keypoint>& keypoints2,
+                                            std::vector<slam::Match>& bestMatches) const {
     const Eigen::Index desc1Count = descriptors1.rows();
     const Eigen::Index desc2Count = descriptors2.rows();
-    const Eigen::Index descSize = descriptors1.cols();
-
-    Eigen::MatrixXi hammingDists(desc1Count, desc2Count);
-
-    for (Eigen::Index i = 0; i < desc1Count; ++i) {
-        for (Eigen::Index j = 0; j < desc2Count; ++j) {
-            int dist = 0;
-            for (Eigen::Index k = 0; k < descSize; ++k) {
-                const uint32_t index = descriptors1(i, k) ^ descriptors2(j, k);
-                dist += POPCOUNT_TABLE.at(index);
-            }
-            hammingDists(i, j) = dist;
-        }
-    }
-
+    const bool nonEmptyKeypoints = !keypoints1.empty() && !keypoints2.empty();
     bestMatches.reserve(desc1Count);
+
     for (Eigen::Index i = 0; i < desc1Count; ++i) {
-        Eigen::MatrixXi::Index minIndex{};
-        int minHammingDist = hammingDists.row(i).minCoeff(&minIndex);
-        bestMatches.emplace_back(static_cast<int>(i), static_cast<int>(minIndex),
-                                 static_cast<float>(minHammingDist));
+        int bestDist = std::numeric_limits<int>::max();
+        int secondBestDist = std::numeric_limits<int>::max();
+        Eigen::Index bestIndex = -1;
+
+        for (Eigen::Index j = 0; j < desc2Count; ++j) {
+            int dist = calculateHammingDistance(descriptors1.row(i), descriptors2.row(j));
+
+            if (nonEmptyKeypoints) {
+                const float dx = keypoints1[i].x - keypoints2[j].x;
+                const float dy = keypoints1[i].y - keypoints2[j].y;
+                const float imageDistance = std::sqrt(dx * dx + dy * dy);
+                if (imageDistance > slam::constants::MAX_JUMP_RADIUS) {
+                    dist *= slam::constants::JUMP_PENALTY;
+                }
+            }
+
+            updateBestMatches(dist, j, bestDist, secondBestDist, bestIndex);
+        }
+
+        bool matchIsGood = true;
+        if (m_useRatioTest) {
+            // Apply Lowe's ratio test
+            if (static_cast<float>(bestDist) >=
+                m_ratioTestThreshold * static_cast<float>(secondBestDist)) {
+                matchIsGood = false;
+            }
+        }
+
+        if (matchIsGood && bestIndex != -1) {
+            bestMatches.emplace_back(static_cast<int>(i), static_cast<int>(bestIndex),
+                                     static_cast<float>(bestDist));
+        }
     }
 }
 
