@@ -15,7 +15,7 @@ target_include_directories(
 target_link_libraries(
     test_preprocessing
     PUBLIC
-        slam_preprocessor
+        slam_preprocessing
     PRIVATE
         spdlog::spdlog
         fmt::fmt

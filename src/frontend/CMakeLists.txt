@@ -1,7 +1,19 @@
-add_library(slam_feature_detector feature_detector.cpp)
+add_library(slam_frontend
+    feature_detector.cpp feature_matcher.cpp)
 
 target_include_directories(
-    slam_feature_detector
+    slam_frontend
+    PUBLIC
+        ${SLAM_INCLUDE_DIRS}
+    PRIVATE
+        ${spdlog_INCLUDE_DIRS}
+        ${fmt_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+        ${Eigen_INCLUDE_DIRS}
+        ${yaml-cpp_INCLUDE_DIRS}
+)
+target_include_directories(
+    slam_frontend
     PUBLIC
         ${SLAM_INCLUDE_DIRS}
     PRIVATE
@@ -13,7 +25,7 @@ target_include_directories(
 )
 
 target_link_libraries(
-    slam_feature_detector
+    slam_frontend
     PRIVATE
         spdlog::spdlog
         fmt::fmt
@@ -22,4 +34,5 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-install(TARGETS slam_feature_detector DESTINATION lib)
+
+install(TARGETS slam_frontend DESTINATION lib)
