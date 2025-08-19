@@ -1,6 +1,5 @@
 add_library(slam_frontend feature_detector.cpp feature_matcher.cpp pose_estimator.cpp simple_pose_recover.cpp)
 
-add_library(slam_frontend common.cpp feature_detector.cpp pose_estimator.cpp)
 target_include_directories(
     slam_frontend
     PUBLIC

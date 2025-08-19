@@ -1,10 +1,12 @@
 #pragma once
+
 #include <filesystem>
 #include <stdexcept>
 #include <string>
 
 #include <Eigen/Eigen>
 
+#include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/core/persistence.hpp>
 #include <opencv2/imgproc.hpp>
@@ -186,5 +188,36 @@ private:
     Eigen::VectorXd m_D;
     Eigen::Vector2i m_imageSize;
 };
+
+/**
+ * @brief Triangulates 3D points from two camera projection matrices and corresponding 2D points.
+ *
+ * @param P1 The projection matrix of the first camera.
+ * @param P2 The projection matrix of the second camera.
+ * @param points1 The 2D points in the first image.
+ * @param points2 The 2D points in the second image.
+ * @param points_4d Output 4D homogeneous coordinates of the triangulated points.
+ */
+inline void triangulate(const cv::Mat& P1, const cv::Mat& P2,
+                        const std::vector<cv::Point2f>& points1,
+                        const std::vector<cv::Point2f>& points2, cv::Mat& points_4d) {
+    points_4d = cv::Mat(4, points1.size(), CV_32F);
+
+    for (size_t i = 0; i < points1.size(); i++) {
+        cv::Mat A(4, 4, CV_64F);
+
+        A.row(0) = points1[i].x * P1.row(2) - P1.row(0);
+        A.row(1) = points1[i].y * P1.row(2) - P1.row(1);
+        A.row(2) = points2[i].x * P2.row(2) - P2.row(0);
+        A.row(3) = points2[i].y * P2.row(2) - P2.row(1);
+
+        cv::Mat u, w, vt;
+        cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
+
+        cv::Mat x_homogeneous = vt.row(3).t();
+
+        x_homogeneous.copyTo(points_4d.col(static_cast<int>(i)));
+    }
+}
 
 }  // namespace slam
