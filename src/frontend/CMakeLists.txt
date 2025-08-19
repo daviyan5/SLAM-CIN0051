@@ -10,7 +10,6 @@ target_include_directories(
         ${fmt_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
-        ${yaml-cpp_INCLUDE_DIRS}
 )
 target_include_directories(
     slam_frontend
@@ -21,7 +20,6 @@ target_include_directories(
         ${fmt_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
-        ${yaml-cpp_INCLUDE_DIRS}
 )
 
 target_link_libraries(
@@ -31,7 +29,6 @@ target_link_libraries(
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen
-        yaml-cpp::yaml-cpp
 )
 
 

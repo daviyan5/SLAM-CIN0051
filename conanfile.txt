@@ -2,7 +2,8 @@
 opencv/4.12.0
 eigen/3.4.0
 spdlog/1.15.3
-yaml-cpp/0.8.0
+stella-cv-fbow/cci.20240508
+llvm-openmp/20.1.6
 
 [generators]
 CMakeDeps

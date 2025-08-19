@@ -12,10 +12,40 @@
 #include <spdlog/spdlog.h>
 
 namespace slam {
+// This helper function is self-contained and can be defined first.
+constexpr uint8_t popcount(int n) {
+    uint8_t count = 0;
+    while (n > 0) {
+        n &= (n - 1);
+        count++;
+    }
+    return count;
+}
 
 namespace constants {
-constexpr double COLOR_RANGE = 255.0;  // Range for grayscale images in OpenCV
+constexpr double COLOR_RANGE = 255.0;
+constexpr size_t POSSIBLE_VALUES = 256;
+static const auto POPCOUNT_TABLE = []() {
+    std::array<uint8_t, POSSIBLE_VALUES> table{};
+    for (int i = 0; i < POSSIBLE_VALUES; ++i) {
+        table.at(i) = popcount(i);
+    }
+    return table;
+}();
+
 }  // namespace constants
+
+template <typename Derived1, typename Derived2>
+static int calculateHammingDistance(const Eigen::MatrixBase<Derived1>& d1,
+                                    const Eigen::MatrixBase<Derived2>& d2) {
+    int dist = 0;
+    for (Eigen::Index k = 0; k < d1.size(); ++k) {
+        // Assuming the descriptor elements are 8-bit, the XOR result will be in [0, 255]
+        const uint32_t index = d1(k) ^ d2(k);
+        dist += constants::POPCOUNT_TABLE.at(index);
+    }
+    return dist;
+}
 
 /**
  * @brief A pair of keypoint and its descriptor.
@@ -34,6 +64,8 @@ using EigenGrayMatrix =
  */
 class Camera {
 public:
+    Camera() = default;
+
     /**
      * @brief Constructor for a single camera.
      * @param configPath - Path to the OpenCV-style YAML file.
@@ -138,10 +170,17 @@ public:
         return undistortedImage;
     }
 
+    [[nodiscard]] const Eigen::Matrix3d& getIntrinsicMatrix() const {
+        return m_K;
+    }
+    [[nodiscard]] const Eigen::VectorXd& getDistortionCoefficients() const {
+        return m_D;
+    }
+
 private:
-    int m_cameraIndex;
-    double m_fx, m_fy, m_cx, m_cy;
-    double m_k1, m_k2, m_p1, m_p2, m_k3;
+    int m_cameraIndex{};
+    double m_fx{}, m_fy{}, m_cx{}, m_cy{};
+    double m_k1{}, m_k2{}, m_p1{}, m_p2{}, m_k3{};
 
     Eigen::Matrix3d m_K;
     Eigen::VectorXd m_D;

@@ -10,7 +10,6 @@ target_include_directories(
         ${fmt_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
-        ${yaml-cpp_INCLUDE_DIRS}
 )
 target_include_directories(
     test_feature_matcher
@@ -21,7 +20,6 @@ target_include_directories(
         ${fmt_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         ${Eigen_INCLUDE_DIRS}
-        ${yaml-cpp_INCLUDE_DIRS}
 )
 
 target_link_libraries(
@@ -33,7 +31,6 @@ target_link_libraries(
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen
-        yaml-cpp::yaml-cpp
 )
 target_link_libraries(
     test_feature_matcher
@@ -44,7 +41,6 @@ target_link_libraries(
         fmt::fmt
         opencv::opencv
         Eigen3::Eigen
-        yaml-cpp::yaml-cpp
 )
 install(TARGETS test_feature_detector test_feature_matcher
         DESTINATION test)

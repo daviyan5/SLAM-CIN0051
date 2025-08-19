@@ -9,10 +9,9 @@
 
 namespace slam {
 namespace constants {
-constexpr uint32_t POSSIBLE_VALUES = 1 << 8;
 constexpr uint32_t MAX_JUMP_RADIUS = 100;
 constexpr uint32_t JUMP_PENALTY = 10;
-}
+}  // namespace constants
 
 /**
  * @brief Structure representing a feature match between two images.
